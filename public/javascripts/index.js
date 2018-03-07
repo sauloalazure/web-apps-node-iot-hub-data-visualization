@@ -147,10 +147,13 @@ $(document).ready(function () {
               sensorData.data.temp.push(temp);
               sensorData.data.humi.push(humi);
               if (sensor) {
-                if (!( 'label_orig' in sensorData.meta )) {
-                  sensorData.meta.label_orig  = sensorData.meta.label;
-                  sensorData.meta.label      += ' ' + sensor;
-                  console.log('new label', sensorData.meta.label, sensorData.meta.label_orig); 
+                if (!( 'label_orig' in sensorData.meta.temp )) {
+                  sensorData.meta.temp.label_orig  = sensorData.meta.temp.label;
+                  sensorData.meta.humi.label_orig  = sensorData.meta.humi.label;
+                  sensorData.meta.temp.label      += ' ' + sensor;
+                  sensorData.meta.humi.label      += ' ' + sensor;
+                  console.log('new label temp', sensorData.meta.temp.label, sensorData.meta.temp.label_orig);
+                  console.log('new label humi', sensorData.meta.humi.label, sensorData.meta.humi.label_orig); 
                 }
               }
           } else {
