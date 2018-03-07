@@ -3,44 +3,60 @@ $(document).ready(function () {
   
   var sensors = {
     '53ff6d066667574834441267': {
-      'name' : 'Neo',
-      'color': 'rgba(255, 204, 0, 1)',
-      'backgroundColor': 'rgba(255, 204, 0, 0.4)',
       'pos': 0,
-      'data': []
+      'name' : 'Neo',
+      'color':           {'temp': 'rgba(250, 100, 0, 1.0)', 'humi': 'rgba(  0, 100, 250, 1.0)' }, 
+      'backgroundColor': {'temp': 'rgba(250, 100, 0, 0.4)', 'humi': 'rgba(  0, 100, 250, 0.4)' },
+      'data':            {'temp':[],'humi':[]}
     },
     '2e002c000a47343337373738': {
-      'name' : 'Morph',
-      'color': 'rgba(120, 24, 0, 1)',
-      'backgroundColor': 'rgba(120, 24, 0, 0.4)',
       'pos': 1,
-      'data': []
+      'name' : 'Morph',
+      'color':           {'temp': 'rgba(200, 100, 0, 1.0)', 'humi': 'rgba(  0, 100, 200, 1.0)' },
+      'backgroundColor': {'temp': 'rgba(200, 100, 0, 0.4)', 'humi': 'rgba(  0, 100, 200, 0.4)' },
+      'data':            {'temp':[],'humi':[]}
     },
     '3d003c000d47343233323032': {
-      'name' : 'Trinity',
-      'color': 'rgba(24, 120, 0, 1)',
-      'backgroundColor': 'rgba(24, 120, 0, 0.4)',
       'pos': 2,
-      'data': []
+      'name' : 'Trinity',
+      'color':           {'temp': 'rgba(150, 100, 0, 1.0)', 'humi': 'rgba(  0, 100, 150, 1.0)' }, 
+      'backgroundColor': {'temp': 'rgba(150, 100, 0, 0.4)', 'humi': 'rgba(  0, 100, 150, 0.4)' },
+      'data':            {'temp':[],'humi':[]}
     }
   }
      
   var dataCfg = [];
  
   $.each(sensors, function(sensorName, sensorData) {
-    dataCfg[ sensorData['pos'] ] = {
+    sensorData.meta = {
+      'temp': {
         fill: false,
-        label: 'Temperature ' + sensorData['name'],
         yAxisID: 'Temperature',
-        borderColor: sensorData['color'],
-        pointBoarderColor: sensorData['color'],
-        backgroundColor: sensorData['backgroundColor'],
-        pointHoverBackgroundColor: sensorData['color'],
-        pointHoverBorderColor: sensorData['color'],
-        data: sensorData['data']
+        label: 'Temperature ' + sensorData.name,
+        borderColor: sensorData.color.temp,
+        pointBoarderColor: sensorData.color.temp,
+        backgroundColor: sensorData.backgroundColor.temp,
+        pointHoverBackgroundColor: sensorData.color.temp,
+        pointHoverBorderColor: sensorData.color.temp,
+        data: sensorData.data.temp
+      },
+      'humi': {
+        fill: false,
+        yAxisID: 'Humidity',
+        label: 'Humidity ' + sensorData.name,
+        borderColor: sensorData.color.humi,
+        pointBoarderColor: sensorData.color.humi,
+        backgroundColor: sensorData.backgroundColor.humi,
+        pointHoverBackgroundColor: sensorData.color.humi,
+        pointHoverBorderColor: sensorData.color.humi,
+        data: sensorData.data.humi
+      }
     };
+    
+    dataCfg[ sensorData.pos * 2 + 0 ] = sensorData.meta.temp;
+    dataCfg[ sensorData.pos * 2 + 1 ] = sensorData.meta.humi;
   });
-   
+      
   var data = {
     labels: timeData,
     datasets: dataCfg
@@ -49,7 +65,7 @@ $(document).ready(function () {
   var basicOption = {
     title: {
       display: true,
-      text: 'Temperature Real-time Data',
+      text: 'Temperature & Humidity Real-time Data',
       fontSize: 36
     },
     scales: {
@@ -61,6 +77,15 @@ $(document).ready(function () {
           display: true
         },
         position: 'left',
+      },
+      {
+        id: 'Humidity',
+        type: 'linear',
+        scaleLabel: {
+          labelString: 'Humidity(%)',
+          display: true
+        },
+        position: 'right',
       }]
     }
   }
@@ -82,25 +107,59 @@ $(document).ready(function () {
   }
   ws.onmessage = function (message) {
     console.log('receive message' + message.data);
+
     try {
       var obj = JSON.parse(message.data);
       if(!obj.time || !obj.data) {
         console.log('misformed data')
         return;
       }
+      
       timeData.push(obj.time);
 
       var sensorId = obj.device_id;
       
       if ( sensorId in sensors) {
+        var jr = isJson(obj.data)
+        var isjson = jr[0];
+        var parsed = jr[1];
+        console.log('isjson', isjson, 'parsed', parsed);
+        var temp = null
+        var humi = null;
+        var sensor = null;
+        
+        if ( isjson ) {
+          if ( 'temp' in parsed ) {
+            temp = parsed.temp;
+          }
+          if ( 'humi' in parsed ) {
+            humi = parsed.humi;
+          }
+          if ( 'sensor' in parsed ) {
+            sensor = parsed.sensor;
+          }           
+        } else {
+            temp = parsed;          
+        }
+        
         $.each(sensors, function(sensorName, sensorData) {
           if ( sensorName == sensorId ) {
-            sensorData.data.push(obj.data);
+              sensorData.data.temp.push(temp);
+              sensorData.data.humi.push(humi);
+              if (sensor) {
+                if (!( 'label_orig' in sensorData.meta )) {
+                  sensorData.meta.label_orig  = sensorData.meta.label;
+                  sensorData.meta.label      += ' ' + sensor;
+                  console.log('new label', sensorData.meta.label, sensorData.meta.label_orig); 
+                }
+              }
           } else {
             if (sensorData.data.length == 0) {
-              sensorData.data.push(null);
+              sensorData.data.temp.push(null);
+              sensorData.data.humi.push(null);
             } else {
-              sensorData.data.push(sensorData.data[sensorData.data.length-1]);
+              sensorData.data.temp.push(sensorData.data.temp[sensorData.data.temp.length-1]);
+              sensorData.data.humi.push(sensorData.data.humi[sensorData.data.humi.length-1]);
             }
           }
         });
@@ -113,8 +172,9 @@ $(document).ready(function () {
       var len = timeData.length;
       if (len > maxLen) {
         timeData.shift();
-        $.each(sensors, function(sensorName,sensorData) {
-          sensorData.data.shift();
+        $.each(sensors, function(sensorName, sensorData) {
+          sensorData.data.temp.shift();
+          sensorData.data.humi.shift();
         });
       }
           
@@ -125,3 +185,21 @@ $(document).ready(function () {
   }
 });
 
+function isJson(item) {
+  //https://stackoverflow.com/questions/9804777/how-to-test-if-a-string-is-json-or-not
+    item = typeof item !== "string"
+        ? JSON.stringify(item)
+        : item;
+
+    try {
+        item = JSON.parse(item);
+    } catch (e) {
+        return [ false, item ];
+    }
+
+    if (typeof item === "object" && item !== null) {
+        return [ true, item ];
+    }
+
+    return [ false, item ];
+}
