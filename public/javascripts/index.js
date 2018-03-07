@@ -31,6 +31,7 @@ $(document).ready(function () {
     sensorData.meta = {
       'temp': {
         fill: false,
+        type: 'line',
         yAxisID: 'Temperature',
         label: 'Temperature ' + sensorData.name,
         borderColor: sensorData.color.temp,
@@ -42,6 +43,7 @@ $(document).ready(function () {
       },
       'humi': {
         fill: false,
+        type: 'bar',
         yAxisID: 'Humidity',
         label: 'Humidity ' + sensorData.name,
         borderColor: sensorData.color.humi,
