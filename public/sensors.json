@@ -1,23 +1,67 @@
 {
-    "53ff6d066667574834441267": {
-      "pos": 0,
-      "name" : "Neo",
-      "color":           {"temp": "rgba(250, 100, 0, 1.0)", "humi": "rgba(  0, 100, 250, 1.0)" }, 
-      "backgroundColor": {"temp": "rgba(250, 100, 0, 0.4)", "humi": "rgba(  0, 100, 250, 0.4)" },
-      "data":            {"temp":[],"humi":[]}
-    },
-    "2e002c000a47343337373738": {
-      "pos": 1,
-      "name" : "Morph",
-      "color":           {"temp": "rgba(200, 100, 0, 1.0)", "humi": "rgba(  0, 100, 200, 1.0)" },
-      "backgroundColor": {"temp": "rgba(200, 100, 0, 0.4)", "humi": "rgba(  0, 100, 200, 0.4)" },
-      "data":            {"temp":[],"humi":[]}
-    },
-    "3d003c000d47343233323032": {
-      "pos": 2,
-      "name" : "Trinity",
-      "color":           {"temp": "rgba(150, 100, 0, 1.0)", "humi": "rgba(  0, 100, 150, 1.0)" }, 
-      "backgroundColor": {"temp": "rgba(150, 100, 0, 0.4)", "humi": "rgba(  0, 100, 150, 0.4)" },
-      "data":            {"temp":[],"humi":[]}
-    }
+    "sensors": [
+        {
+            "id": "53ff6d066667574834441267",
+            "name" : "Neo"
+        },
+        {
+            "id": "2e002c000a47343337373738",
+            "name" : "Morph"
+        },
+        {
+            "id": "3d003c000d47343233323032",
+            "name" : "Trinity"
+        }
+    ],
+    "measurements": [
+        {
+            "key": "temp",
+            "label": "Temperature",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "cb-YlOrRd",
+            "axis": {
+                "id": "Temperature (C)",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Pressure (C)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        },
+        {
+            "key": "humi",
+            "label": "Humidity",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "cb-YlGnBu",
+            "axis": {
+                "id": "Humidity (%)",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Humidity (%)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        },
+        {
+            "key": "pres",
+            "label": "Pressure (Pa)",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "cb-BuPu",
+            "axis": {
+                "id": "Pressure",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Pressure (hPa)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        }
+    ]
 }
+

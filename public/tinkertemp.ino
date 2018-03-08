@@ -1,16 +1,65 @@
-// This #include statement was automatically added by the Particle IDE.
+#define VERSION "201803082134"
 //#define DEBUG_SERIAL
+//#define DEBUG_WEB
+
+
+
 #define TINKER
 
-//#define SENSOR_TMP36
+// #define SENSOR_TMP36
+// #define SENSOR_HTU21D_ADAFRUIT
+// #define SENSOR_HTU21D_GENERIC
+#define SENSOR_BMP085
+
+
+
+#ifdef SENSOR_HTU21D_ADAFRUIT
 #define SENSOR_HTU21D
-
-
-
-
-#ifdef SENSOR_HTU21D
 #include <Wire.h>
 #include <adafruit-htu21df.h>
+#endif
+
+#ifdef SENSOR_HTU21D_GENERIC
+#define SENSOR_HTU21D
+#include <HTU21DF.h>
+#endif
+
+#ifdef SENSOR_BMP085
+#include <Adafruit_BMP085.h>
+#endif
+
+
+
+
+
+
+#ifdef SENSOR_HTU21D_ADAFRUIT
+Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+#endif
+
+#ifdef SENSOR_HTU21D_GENERIC
+HTU21DF htu = HTU21DF();
+#endif
+
+#ifdef SENSOR_HTU21D
+#define SENSOR_HTU21D_WAIT_BEGIN 5000
+#endif
+
+
+#ifdef SENSOR_BMP085
+#define SENSOR_BMP085_WAIT_BEGIN 5000
+Adafruit_BMP085 bmp;
+#endif
+
+
+#ifdef SENSOR_TMP36
+const int     pinTemp36      = A7;
+#define AREF_VOLTAGE             3320
+#define SENSOR_TMP36_SAMPLES        8   // samples to take
+#define SENSOR_TMP36_WAIT           2   // interval between samples
+#define SENSOR_TMP36_MAX_VOLTAGE 1550   // max voltage output at 125C for 3.3V
+#define SENSOR_TMP36_SLOPE       0.1128 // slope for pairs (mV,Tc) = (0,-50), (595.5311,18), (1550,125). 
+                                        // second value is emprirical. third value leads to R-squared of zero
 #endif
 
 
@@ -41,30 +90,11 @@ const int     pinLight       = D7;
 
 
 
-#ifdef SENSOR_TMP36
-const int     pinTemp36      = A7;
-#define AREF_VOLTAGE             3320
-#define SENSOR_TMP36_SAMPLES        8   // samples to take
-#define SENSOR_TMP36_WAIT           2   // interval between samples
-#define SENSOR_TMP36_MAX_VOLTAGE 1550   // max voltage output at 125C for 3.3V
-#define SENSOR_TMP36_SLOPE       0.1128 // slope for pairs (mV,Tc) = (0,-50), (595.5311,18), (1550,125). 
-                                        // second value is emprirical. third value leads to R-squared of zero
-#endif
-
-
-#ifdef SENSOR_HTU21D
-#define SENSOR_HTU21D_WAIT_BEGIN 5000
-
-Adafruit_HTU21DF htu = Adafruit_HTU21DF();
-
-#endif
-
-
 // LOOP VARIABLES
 unsigned long firstAvailable = 0;
 bool          wifiReady      = false;
 bool          cloudReady     = false;
-char          publishString[64];
+char          publishString[254];
 
 /* This function is called once at start up ----------------------------------*/
 void setup()
@@ -108,30 +138,6 @@ void setup()
     #endif
 
 
-// #ifdef SENSOR_HTU21D
-// #ifdef DEBUG_SERIAL
-// 	Serial.println("setting up HTU21D");
-// #endif
-//     htu.begin();
-//     delay(SENSOR_HTU21D_WAIT_BEGIN);
-    
-// 	while(! htu.begin()){
-// #ifdef DEBUG_SERIAL
-//     	Serial.print("HTU21D not found. waiting ");
-//     	Serial.print(SENSOR_HTU21D_WAIT_BEGIN);
-//     	Serial.println("");
-// #endif
-
-// 	    delay(SENSOR_HTU21D_WAIT_BEGIN);
-// 	}
-
-// #ifdef DEBUG_SERIAL
-//     	Serial.println("HTU21D found. continuing");
-// #endif
-
-// #endif
-
-
     firstAvailable = 0;
     wifiReady      = false;
     cloudReady     = false;
@@ -166,28 +172,64 @@ void loop()
 
 
             #ifdef SENSOR_TMP36
-                Particle.publish("SENSOR","SENSOR_TMP36",PRIVATE);
-                // ALL CALCULATION
-                // double analogValue    = analogRead(pinTemp36);
-                // // converting that reading to voltage, which is based off the reference voltage
-                // double voltage        = AREF_VOLTAGE * (((double)analogValue) / 4095.0);
-                // // converting from 10 mv per degree wit 500 mV offset
-                // // to degrees ((volatge - 500mV) times 100)
-                // double temperature    = (voltage - 500.0) / 10.0;
-                // Particle.publish(channelName, String(analogValue), PRIVATE);
-                // Particle.publish(channelName, String(voltage    ), PRIVATE);
-                // Particle.publish(channelName, String(temperature), PRIVATE);
-    
-                // SOME CALCULATION
-                // double voltage        = readMilliVolts(pinTemp36);
-                // double temperature    = (voltage - 500.0) / 10.0;
-                // Particle.publish(channelName, String(voltage    ), PRIVATE);
-                // Particle.publish(channelName, String(temperature), PRIVATE);
-    
-                // SHORT
-                sprintf(publishString,"{\"temp\":%0.2f,\"humi\":null,\"sensor\":\"TMP36\"}",TMP36GetCentigrade(pinTemp36));
+                #ifdef DEBUG_WEB
+                    Particle.publish("SENSOR","SENSOR_TMP36",PRIVATE);
+                #endif
+                sprintf(publishString,"{\"t\":%0.2f,\"h\":null,\"p\":null,\"s\":\"TMP36\",\"v\":\"%s\"}",TMP36GetCentigrade(pinTemp36),VERSION);
                 #ifdef DEBUG_SERIAL
             	    Serial.print("sending TMP36 ");
+            	    Serial.print(publishString);
+            	    Serial.println("");
+                #endif
+                Particle.publish(channelName, publishString, PRIVATE);
+            #endif
+
+
+
+
+
+
+
+            #ifdef SENSOR_HTU21D
+                #ifdef DEBUG_WEB
+                    Particle.publish("SENSOR","SENSOR_HTU21D",PRIVATE);
+                #endif
+
+                #ifdef DEBUG_SERIAL
+                	Serial.println("setting up HTU21D");
+                #endif
+
+                // htu.begin();
+                // delay(SENSOR_HTU21D_WAIT_BEGIN);
+                
+                #ifdef DEBUG_WEB
+                    Particle.publish("LOG","TRYING I2C",PRIVATE);
+                #endif
+            	while(! htu.begin()){
+            	    #ifdef DEBUG_WEB
+                        Particle.publish("LOG","WIRE IS NOT ENABLED",PRIVATE);
+                    #endif
+
+                    #ifdef DEBUG_SERIAL
+                    	Serial.print("HTU21D not found. waiting ");
+                    	Serial.print(SENSOR_HTU21D_WAIT_BEGIN);
+                    	Serial.println("");
+                    #endif
+                
+            	    delay(SENSOR_HTU21D_WAIT_BEGIN);
+            	}
+            	#ifdef DEBUG_WEB
+            	    Particle.publish("LOG","I2C SUCCESSFUL",PRIVATE);
+            	#endif
+                
+                #ifdef DEBUG_SERIAL
+                    Serial.println("HTU21D found. continuing");
+                #endif
+
+                sprintf(publishString,"{\"t\":%0.2f,\"h\":%0.2f,\"p\":null,\"s\":\"HTU21D\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),VERSION);
+    
+                #ifdef DEBUG_SERIAL
+            	    Serial.print("sending HTU21D ");
             	    Serial.print(publishString);
             	    Serial.println("");
                 #endif
@@ -199,50 +241,52 @@ void loop()
 
 
 
-            #ifdef SENSOR_HTU21D
-                Particle.publish("SENSOR","SENSOR_HTU21D",PRIVATE);
-
-            
-                #ifdef DEBUG_SERIAL
-                	Serial.println("setting up HTU21D");
+            #ifdef SENSOR_BMP085
+                #ifdef DEBUG_WEB
+                    Particle.publish("SENSOR","SENSOR_BMP085",PRIVATE);
                 #endif
-                
-                
-                // htu.begin();
-                // delay(SENSOR_HTU21D_WAIT_BEGIN);
-                
-                Particle.publish("LOG","TRYING I2C",PRIVATE);
-            	while(! htu.begin()){
-                    Particle.publish("LOG","WIRE IS NOT ENABLED",PRIVATE);
+
+                #ifdef DEBUG_SERIAL
+                	Serial.println("setting up BMP085");
+                #endif
+
+                #ifdef DEBUG_WEB
+                    Particle.publish("LOG","TRYING I2C",PRIVATE);
+                #endif
+
+            	while(! bmp.begin()){
+            	    #ifdef DEBUG_WEB
+                        Particle.publish("LOG","WIRE IS NOT ENABLED",PRIVATE);
+                    #endif
 
                     #ifdef DEBUG_SERIAL
-                    	Serial.print("HTU21D not found. waiting ");
-                    	Serial.print(SENSOR_HTU21D_WAIT_BEGIN);
+                    	Serial.print("BMP085 not found. waiting ");
+                    	Serial.print(SENSOR_BMP085_WAIT_BEGIN);
                     	Serial.println("");
                     #endif
                 
-            	    delay(SENSOR_HTU21D_WAIT_BEGIN);
+            	    delay(SENSOR_BMP085_WAIT_BEGIN);
             	}
-            	Particle.publish("LOG","I2C SUCCESSFUL",PRIVATE);
+            	#ifdef DEBUG_WEB
+            	    Particle.publish("LOG","I2C SUCCESSFUL",PRIVATE);
+            	#endif
                 
                 #ifdef DEBUG_SERIAL
-                    Serial.println("HTU21D found. continuing");
+                    Serial.println("BMP085 found. continuing");
                 #endif
+
+                sprintf(publishString,"{\"t\":%0.2f,\"h\":null,\"p\":%ld,\"s\":\"BMP085\",\"v\":\"%s\"}",bmp.readTemperature(),bmp.readPressure(),VERSION);
+    
+                #ifdef DEBUG_SERIAL
+            	    Serial.print("sending BMP085 ");
+            	    Serial.print(publishString);
+            	    Serial.println("");
+                #endif
+                
+                Particle.publish(channelName, publishString, PRIVATE);
             #endif
 
-            // 	Serial.print("Hum:"); Serial.println(htu.readHumidity());
-            // 	Serial.print("Temp:"); Serial.println(htu.readTemperature());
-            //float HTU21D::readHumidity(){
-            //float HTU21D::readTemperature(){
-            sprintf(publishString,"{\"temp\":%0.2f,\"humi\":%0.2f,\"sensor\":\"HTU21D\"}",htu.readTemperature(),htu.readHumidity());
 
-            #ifdef DEBUG_SERIAL
-        	    Serial.print("sending HTU21D ");
-        	    Serial.print(publishString);
-        	    Serial.println("");
-            #endif
-            
-            Particle.publish(channelName, publishString, PRIVATE);
 
 
 
