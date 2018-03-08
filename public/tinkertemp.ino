@@ -1,8 +1,27 @@
+// This #include statement was automatically added by the Particle IDE.
+//#define DEBUG_SERIAL
+#define TINKER
+
+//#define SENSOR_TMP36
+#define SENSOR_HTU21D
+
+
+
+
+#ifdef SENSOR_HTU21D
+#include <Wire.h>
+#include <adafruit-htu21df.h>
+#endif
+
+
+
+#ifdef TINKER
 /* Function prototypes -------------------------------------------------------*/
 int tinkerDigitalRead(String pin);
 int tinkerDigitalWrite(String command);
 int tinkerAnalogRead(String pin);
 int tinkerAnalogWrite(String command);
+#endif
 
 // STARTUP(System.enableFeature(FEATURE_RETAINED_MEMORY));
 // retained int retainedCounter = 0;
@@ -10,9 +29,7 @@ int tinkerAnalogWrite(String command);
 
 // int counter;
 
-#define AREF_VOLTAGE 3320
 
-#define SENSOR_TMP36
 
 // CONSTANTS
 const char*   channelName    = "HomeTemp";
@@ -22,40 +39,98 @@ const int     sleepForS      = 60; // sleep for N seconds
 
 const int     pinLight       = D7;
 
-#ifdef SENSOR_TMP36
-#define TMP36_SAMPLES     8       // samples to take
-#define TMP36_WAIT        2       // interval between samples
-#define TMP36_MAX_VOLTAGE 1550    // max voltage output at 125C for 3.3V
-#define SENSOR_TMP36_SLOPE 0.1128 // slope for pairs (mV,Tc) = (0,-50), (595.5311,18), (1550,125). 
-                                  // second value is emprirical. third value leads to R-squared of zero
 
+
+#ifdef SENSOR_TMP36
 const int     pinTemp36      = A7;
+#define AREF_VOLTAGE             3320
+#define SENSOR_TMP36_SAMPLES        8   // samples to take
+#define SENSOR_TMP36_WAIT           2   // interval between samples
+#define SENSOR_TMP36_MAX_VOLTAGE 1550   // max voltage output at 125C for 3.3V
+#define SENSOR_TMP36_SLOPE       0.1128 // slope for pairs (mV,Tc) = (0,-50), (595.5311,18), (1550,125). 
+                                        // second value is emprirical. third value leads to R-squared of zero
 #endif
+
+
+#ifdef SENSOR_HTU21D
+#define SENSOR_HTU21D_WAIT_BEGIN 5000
+
+Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+
+#endif
+
 
 // LOOP VARIABLES
 unsigned long firstAvailable = 0;
 bool          wifiReady      = false;
 bool          cloudReady     = false;
+char          publishString[64];
 
 /* This function is called once at start up ----------------------------------*/
 void setup()
 {
 	//Setup the Tinker application here
 
-	//Register all the Tinker functions
-	Particle.function("digitalread" , tinkerDigitalRead );
-	Particle.function("digitalwrite", tinkerDigitalWrite);
-	Particle.function("analogread"  , tinkerAnalogRead  );
-	Particle.function("analogwrite" , tinkerAnalogWrite );
+    #ifdef DEBUG_SERIAL
+        Serial.begin(115200);
+    
+    	Serial.println("SERIAL DEBUG");
+    
+    	Serial.println("registering functions");
+    #endif
+
+
+    #ifdef TINKER
+    	//Register all the Tinker functions
+    	Particle.function("digitalread" , tinkerDigitalRead );
+    	Particle.function("digitalwrite", tinkerDigitalWrite);
+    	Particle.function("analogread"  , tinkerAnalogRead  );
+    	Particle.function("analogwrite" , tinkerAnalogWrite );
+    #endif
+    
+
+    #ifdef DEBUG_SERIAL
+    	Serial.println("setting blue led low");
+    #endif
 
     pinMode(pinLight, OUTPUT);
 	digitalWrite(pinLight, LOW);
 
+
     // Spark.variable("temperature", &temperature, DOUBLE);
-#ifdef SENSOR_TMP36
-    pinMode(pinTemp36, INPUT);
-    analogRead(pinTemp36);
-#endif
+    #ifdef SENSOR_TMP36
+        #ifdef DEBUG_SERIAL
+        	Serial.println("setting up TMP36");
+        #endif
+        
+        pinMode(pinTemp36, INPUT);
+        analogRead(pinTemp36);
+    #endif
+
+
+// #ifdef SENSOR_HTU21D
+// #ifdef DEBUG_SERIAL
+// 	Serial.println("setting up HTU21D");
+// #endif
+//     htu.begin();
+//     delay(SENSOR_HTU21D_WAIT_BEGIN);
+    
+// 	while(! htu.begin()){
+// #ifdef DEBUG_SERIAL
+//     	Serial.print("HTU21D not found. waiting ");
+//     	Serial.print(SENSOR_HTU21D_WAIT_BEGIN);
+//     	Serial.println("");
+// #endif
+
+// 	    delay(SENSOR_HTU21D_WAIT_BEGIN);
+// 	}
+
+// #ifdef DEBUG_SERIAL
+//     	Serial.println("HTU21D found. continuing");
+// #endif
+
+// #endif
+
 
     firstAvailable = 0;
     wifiReady      = false;
@@ -79,29 +154,103 @@ void loop()
 			// sleeping.
 // 			Serial.println("calling System.sleep(SLEEP_MODE_DEEP, 30)");
 
+            #ifdef DEBUG_SERIAL
+    	        Serial.println("connected. sending signal");
+            #endif
+
             digitalWrite(pinLight, HIGH);
 
-#ifdef SENSOR_TMP36
-            // ALL CALCULATION
-            // double analogValue    = analogRead(pinTemp36);
-            // // converting that reading to voltage, which is based off the reference voltage
-            // double voltage        = AREF_VOLTAGE * (((double)analogValue) / 4095.0);
-            // // converting from 10 mv per degree wit 500 mV offset
-            // // to degrees ((volatge - 500mV) times 100)
-            // double temperature    = (voltage - 500.0) / 10.0;
-            // Particle.publish(channelName, String(analogValue), PRIVATE);
-            // Particle.publish(channelName, String(voltage    ), PRIVATE);
-            // Particle.publish(channelName, String(temperature), PRIVATE);
 
-            // SOME CALCULATION
-            // double voltage        = readMilliVolts(pinTemp36);
-            // double temperature    = (voltage - 500.0) / 10.0;
-            // Particle.publish(channelName, String(voltage    ), PRIVATE);
-            // Particle.publish(channelName, String(temperature), PRIVATE);
 
-            // SHORT
-            Particle.publish(channelName, String(TMP36GetCentigrade(pinTemp36)), PRIVATE);
-#endif
+
+
+
+            #ifdef SENSOR_TMP36
+                Particle.publish("SENSOR","SENSOR_TMP36",PRIVATE);
+                // ALL CALCULATION
+                // double analogValue    = analogRead(pinTemp36);
+                // // converting that reading to voltage, which is based off the reference voltage
+                // double voltage        = AREF_VOLTAGE * (((double)analogValue) / 4095.0);
+                // // converting from 10 mv per degree wit 500 mV offset
+                // // to degrees ((volatge - 500mV) times 100)
+                // double temperature    = (voltage - 500.0) / 10.0;
+                // Particle.publish(channelName, String(analogValue), PRIVATE);
+                // Particle.publish(channelName, String(voltage    ), PRIVATE);
+                // Particle.publish(channelName, String(temperature), PRIVATE);
+    
+                // SOME CALCULATION
+                // double voltage        = readMilliVolts(pinTemp36);
+                // double temperature    = (voltage - 500.0) / 10.0;
+                // Particle.publish(channelName, String(voltage    ), PRIVATE);
+                // Particle.publish(channelName, String(temperature), PRIVATE);
+    
+                // SHORT
+                sprintf(publishString,"{\"temp\":%0.2f,\"humi\":null,\"sensor\":\"TMP36\"}",TMP36GetCentigrade(pinTemp36));
+                #ifdef DEBUG_SERIAL
+            	    Serial.print("sending TMP36 ");
+            	    Serial.print(publishString);
+            	    Serial.println("");
+                #endif
+                
+                Particle.publish(channelName, publishString, PRIVATE);
+            #endif
+
+
+
+
+
+            #ifdef SENSOR_HTU21D
+                Particle.publish("SENSOR","SENSOR_HTU21D",PRIVATE);
+
+            
+                #ifdef DEBUG_SERIAL
+                	Serial.println("setting up HTU21D");
+                #endif
+                
+                
+                // htu.begin();
+                // delay(SENSOR_HTU21D_WAIT_BEGIN);
+                
+                Particle.publish("LOG","TRYING I2C",PRIVATE);
+            	while(! htu.begin()){
+                    Particle.publish("LOG","WIRE IS NOT ENABLED",PRIVATE);
+
+                    #ifdef DEBUG_SERIAL
+                    	Serial.print("HTU21D not found. waiting ");
+                    	Serial.print(SENSOR_HTU21D_WAIT_BEGIN);
+                    	Serial.println("");
+                    #endif
+                
+            	    delay(SENSOR_HTU21D_WAIT_BEGIN);
+            	}
+            	Particle.publish("LOG","I2C SUCCESSFUL",PRIVATE);
+                
+                #ifdef DEBUG_SERIAL
+                    Serial.println("HTU21D found. continuing");
+                #endif
+            #endif
+
+            // 	Serial.print("Hum:"); Serial.println(htu.readHumidity());
+            // 	Serial.print("Temp:"); Serial.println(htu.readTemperature());
+            //float HTU21D::readHumidity(){
+            //float HTU21D::readTemperature(){
+            sprintf(publishString,"{\"temp\":%0.2f,\"humi\":%0.2f,\"sensor\":\"HTU21D\"}",htu.readTemperature(),htu.readHumidity());
+
+            #ifdef DEBUG_SERIAL
+        	    Serial.print("sending HTU21D ");
+        	    Serial.print(publishString);
+        	    Serial.println("");
+            #endif
+            
+            Particle.publish(channelName, publishString, PRIVATE);
+
+
+
+
+            #ifdef DEBUG_SERIAL
+    	        Serial.println("signal sent. sleeping");
+            #endif
+
             
 			digitalWrite(pinLight, LOW);
 
@@ -122,15 +271,14 @@ void loop()
 
 
 #ifdef SENSOR_TMP36
-double readMilliVolts(int pin)
-{
+double readMilliVolts(int pin) {
     double val = 0.0;
-    for ( int i = 0; i < TMP36_SAMPLES; ++i ) {
+    for ( int i = 0; i < SENSOR_TMP36_SAMPLES; ++i ) {
         val += analogRead(pin);
-        delay(TMP36_WAIT);
+        delay(SENSOR_TMP36_WAIT);
     }
     
-    val /= TMP36_SAMPLES;
+    val /= SENSOR_TMP36_SAMPLES;
     
 	return map(val, 0, 4095, 0, AREF_VOLTAGE);
 }
@@ -148,6 +296,10 @@ double TMP36GetCentigrade(int pin)
 
 
 
+
+
+
+#ifdef TINKER
 
 /*******************************************************************************
  * Function Name  : tinkerDigitalRead
@@ -268,3 +420,4 @@ int tinkerAnalogWrite(String command)
 	else return -2;
 }
 
+#endif

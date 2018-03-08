@@ -1,36 +1,19 @@
 $(document).ready(function () {
-  var timeData = [];
+  $.getJSON("sensors.json", function(json) {
+    console.log(json); // this will show the info it in firebug console
+    loadSensors(json);
+  });
+});
   
-  var sensors = {
-    '53ff6d066667574834441267': {
-      'pos': 0,
-      'name' : 'Neo',
-      'color':           {'temp': 'rgba(250, 100, 0, 1.0)', 'humi': 'rgba(  0, 100, 250, 1.0)' }, 
-      'backgroundColor': {'temp': 'rgba(250, 100, 0, 0.4)', 'humi': 'rgba(  0, 100, 250, 0.4)' },
-      'data':            {'temp':[],'humi':[]}
-    },
-    '2e002c000a47343337373738': {
-      'pos': 1,
-      'name' : 'Morph',
-      'color':           {'temp': 'rgba(200, 100, 0, 1.0)', 'humi': 'rgba(  0, 100, 200, 1.0)' },
-      'backgroundColor': {'temp': 'rgba(200, 100, 0, 0.4)', 'humi': 'rgba(  0, 100, 200, 0.4)' },
-      'data':            {'temp':[],'humi':[]}
-    },
-    '3d003c000d47343233323032': {
-      'pos': 2,
-      'name' : 'Trinity',
-      'color':           {'temp': 'rgba(150, 100, 0, 1.0)', 'humi': 'rgba(  0, 100, 150, 1.0)' }, 
-      'backgroundColor': {'temp': 'rgba(150, 100, 0, 0.4)', 'humi': 'rgba(  0, 100, 150, 0.4)' },
-      'data':            {'temp':[],'humi':[]}
-    }
-  }
-     
+function loadSensors(sensors) {
+  var timeData = [];     
   var dataCfg = [];
  
   $.each(sensors, function(sensorName, sensorData) {
     sensorData.meta = {
       'temp': {
         fill: false,
+        type: 'line',
         yAxisID: 'Temperature',
         label: 'Temperature ' + sensorData.name,
         borderColor: sensorData.color.temp,
@@ -42,6 +25,7 @@ $(document).ready(function () {
       },
       'humi': {
         fill: false,
+        type: 'bar',
         yAxisID: 'Humidity',
         label: 'Humidity ' + sensorData.name,
         borderColor: sensorData.color.humi,
@@ -186,7 +170,7 @@ $(document).ready(function () {
       console.error(err);
     }
   }
-});
+}
 
 function isJson(item) {
   //https://stackoverflow.com/questions/9804777/how-to-test-if-a-string-is-json-or-not
