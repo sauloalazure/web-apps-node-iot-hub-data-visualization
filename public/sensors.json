@@ -1,4 +1,15 @@
 {
+    "setup": {
+        "maxLen": 100,
+        "graph": {
+            "width": 400,
+            "height": 75,
+            "labelPosition": "right",
+            "displayTitle": false,
+            "titleSize": 16,
+            "type": "line"
+        }
+    },
     "sensors": [
         {
             "id": "53ff6d066667574834441267",
@@ -16,31 +27,15 @@
     "measurements": [
         {
             "key": "temp",
-            "label": "Temperature",
+            "label": "Temperature (C)",
             "type": "line",
             "fill": false,
             "colorScheme": "cb-YlOrRd",
             "axis": {
-                "id": "Temperature (C)",
+                "id": "Temperature",
                 "type": "linear",
                 "scaleLabel": {
-                    "labelString": "Pressure (C)",
-                    "display": true
-                },
-                "position": "left"
-            }
-        },
-        {
-            "key": "humi",
-            "label": "Humidity",
-            "type": "line",
-            "fill": false,
-            "colorScheme": "cb-YlGnBu",
-            "axis": {
-                "id": "Humidity (%)",
-                "type": "linear",
-                "scaleLabel": {
-                    "labelString": "Humidity (%)",
+                    "labelString": "Temperature (C)",
                     "display": true
                 },
                 "position": "left"
@@ -56,7 +51,23 @@
                 "id": "Pressure",
                 "type": "linear",
                 "scaleLabel": {
-                    "labelString": "Pressure (hPa)",
+                    "labelString": "Pressure (Pa)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        },
+        {
+            "key": "humi",
+            "label": "Humidity (%)",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "cb-YlGnBu",
+            "axis": {
+                "id": "Humidity",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Humidity (%)",
                     "display": true
                 },
                 "position": "left"

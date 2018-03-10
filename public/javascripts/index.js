@@ -11,24 +11,24 @@ $(document).ready(function () {
   
 function loadSensors(config) {
   var timeData = [];     
-  var dataCfg = [];
-  var yAxes = [];
+  var dataCfg = {};
   var sensorIds = {}; 
+  var datacfg = {};
+  var charts = {};
   var sensors = config.sensors;
   var measurements = config.measurements;
- 
- 
+  var setup = config.setup;
+  
+  
   $.each(measurements, function(measumentNum, measurementData){
-    var key = measurementData.key;
+    var measurementKey = measurementData.key;
     var label = measurementData.label;
     var axis = measurementData.axis;
     var gtype = measurementData.type;
     var fill = measurementData.fill;
     var colorScheme = measurementData.colorScheme;
-    
-    yAxes.push(axis);
-
     var colorPallet = palette(colorScheme, sensors.length);
+    dataCfg[measurementKey] = [];
 
     $.each(sensors, function(sensorNum, sensorInfo) {
       var sensorId = sensorInfo.id;
@@ -42,7 +42,7 @@ function loadSensors(config) {
         sensorInfo.data = {};
       }
       
-      sensorInfo.data[key] = {
+      sensorInfo.data[measurementKey] = {
         "fill": fill,
         "type": gtype,
         "yAxisID": axis.id,
@@ -55,74 +55,104 @@ function loadSensors(config) {
         data: []
       };
       
-      dataCfg.push( sensorInfo.data[key] );
+      dataCfg[measurementKey].push( sensorInfo.data[measurementKey] );
     });
   });
 
-  console.log("dataCfg", dataCfg);
-  console.log("sensors", sensors);
-  console.log("yAxes", yAxes);
 
-  var data = {
-    labels: timeData,
-    datasets: dataCfg
-  }
-  
-  var basicOption = {
-    title: {
-      display: true,
-      text: "Temperature, Humidity & Pressure Real-time Data",
-      fontSize: 36
-    },
-    scales: {
-      yAxes: yAxes
-    }
-  }
-  
-  //Get the context of the canvas element we want to select
-  var ctx = document.getElementById("myChart").getContext("2d");
-  var optionsNoAnimation = { animation: false }
-  var myLineChart = new Chart(ctx, {
-    "type": "line",
-    "data": data,
-    "options": basicOption
+  $.each(measurements, function(measumentNum, measurementData){
+    var measurementKey = measurementData.key;
+    var measurementLabel = measurementData.label;
+    
+    //Get the context of the canvas element we want to select
+
+    var $chart = $("<canvas>", { id:"myChart_"+measurementKey, width:setup.graph.width, height:setup.graph.height});
+    
+    $( "#graphs" ).append( $chart ); 
+    
+    // console.log('timeData', timeData);
+    // console.log('dataset', dataCfg[measurementKey]);
+    // console.log('axis', measurementData.axis);
+    
+    // var optionsNoAnimation = { animation: false };
+    var ctx = document.getElementById("myChart_"+measurementKey).getContext("2d");
+    
+    charts[measurementKey] = new Chart(ctx, {
+      "type": setup.graph.type,
+      "data": {
+        labels: timeData,
+        datasets: dataCfg[measurementKey]
+      },
+      "options": {
+        title: {
+          display: setup.graph.displayTitle,
+          text: measurementLabel,
+          fontSize: setup.graph.titleSize
+        },
+        scales: {
+          yAxes: [measurementData.axis]
+        },
+        legend: {
+          display: true,
+          position: setup.graph.labelPosition
+        }
+      }
+    });
   });
 
-  const maxLen = 50;
 
+  $('#stats').html("Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.");
+  
   var ws = new WebSocket("wss://" + location.host);
   ws.onopen = function () {
     console.log("Successfully connect WebSocket");
   }
+  
   ws.onmessage = function (message) {
     console.log("receive message" + message.data);
 
     try {
       var obj = JSON.parse(message.data);
-      if(!obj.time || !("temp" in obj) || !("humi" in obj) || !("pres" in obj) || !("vers" in obj) || !("sens" in obj) ) {
+      if(!obj.time || !("vers" in obj) || !("sens" in obj) ) {
         console.log("misformed data")
         return;
       }
+      
+      for ( var measumentNum = 0; measumentNum < measurements.length; measumentNum++ ) {
+        var measurementData = measurements[measumentNum];
+        var measurementKey = measurementData.key;
+        if (!(measurementKey in obj)) {
+          console.log("misformed data. missing", measurementKey, "key");
+          return;
+        } 
+      }
 
       var sensorId = obj.device_id;
+      var sens = obj.sens;
+      var vers = obj.vers;
+      var stime = obj.time;
+
+      // console.log("sensorId", sensorId);
+      // console.log("sens", sens);
+      // console.log("vers", vers);
+      // console.log("stime", stime);
       
       if ( !(sensorId in sensorIds) ) {
         console.warn("unknown sensor", sensorId, sensorIds);
         return; 
       }
-     
-      var sens = obj.sens;
-      var vers = obj.vers;
-      var stime = obj.time;
-      console.log("sensorId", sensorId);
-      console.log("sens", sens);
-      console.log("vers", vers);
-      console.log("stime", stime);
    
+      var input = {};
+
       timeData.push(stime);
 
-      var input = {};
-      
+      if ( timeData.length == 1 ) {
+        $('#firstDatapoint').html(stime);
+      }
+      $('#numDatapoints').html(timeData.length);
+      $('#maxDatapoints').html(setup.maxLen);
+      $('#lastDatapoint').html(stime);
+
       $.each(measurements, function(measumentNum, measurementData){
         var measurementKey = measurementData.key;
         if ( measurementKey in obj ) {
@@ -130,7 +160,7 @@ function loadSensors(config) {
         } else {
           input[measurementKey] = null;
         }
-        console.log(measurementKey, input[measurementKey]);
+        // console.log(measurementKey, input[measurementKey]);
       });
      
 
@@ -161,19 +191,24 @@ function loadSensors(config) {
       
       // // only keep no more than 50 points in the line chart
       
-      var len = timeData.length;
-      if (len > maxLen) {
+      if (timeData.length > setup.maxLen) {
+        // console.log('cleaning');
         timeData.shift();
         $.each(measurements, function(measumentNum, measurementData){
           var measurementKey = measurementData.key;
-          $.each(sensors, function(sensorName, sensorData) {
+          $.each(sensors, function(sensorNum, sensorInfo) {
+            var sensorIdL = sensorInfo.id;
+            var sensorData = sensorInfo.data;
             sensorData[measurementKey].data.shift();
           });
         });
       }
           
-      myLineChart.update();
-
+      $.each(measurements, function(measumentNum, measurementData){
+        var measurementKey = measurementData.key;
+        charts[measurementKey].update();
+      });
+      
     } catch (err) {
       console.error(err);
     }
