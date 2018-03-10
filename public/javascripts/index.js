@@ -59,7 +59,10 @@ function loadSensors(config) {
     });
   });
 
-
+  //https://github.com/chartjs/Chart.js/issues/3666
+  var ylabelwidth = 0;
+  var xlabelwidth = 0;
+  var legendwidth = 0;
   $.each(measurements, function(measumentNum, measurementData){
     var measurementKey = measurementData.key;
     var measurementLabel = measurementData.label;
@@ -76,7 +79,11 @@ function loadSensors(config) {
     
     // var optionsNoAnimation = { animation: false };
     var ctx = document.getElementById("myChart_"+measurementKey).getContext("2d");
-    
+    var yaxis = measurementData.axis;
+    var xaxis = { display: measumentNum == measurements.length-1 };
+    yaxis.afterFit = function(scaleInstance) { if (ylabelwidth < scaleInstance.width) {ylabelwidth = scaleInstance.width} else {scaleInstance.width = ylabelwidth;} };
+    // xaxis.afterFit = function(scaleInstance) { if ( xlabelwidth < scaleInstance.width) {xlabelwidth = scaleInstance.width} else {scaleInstance.width = xlabelwidth;} };
+        
     charts[measurementKey] = new Chart(ctx, {
       "type": setup.graph.type,
       "data": {
@@ -90,11 +97,13 @@ function loadSensors(config) {
           fontSize: setup.graph.titleSize
         },
         scales: {
-          yAxes: [measurementData.axis]
+          yAxes: [yaxis],
+          xAxes: [xaxis]
         },
         legend: {
           display: true,
-          position: setup.graph.labelPosition
+          position: setup.graph.labelPosition,
+          afterFit: function(scaleInstance) { if (legendwidth < scaleInstance.width) {legendwidth = scaleInstance.width} else {legendwidth.width = ylabelwidth;} }
         }
       }
     });
