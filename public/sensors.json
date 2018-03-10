@@ -1,6 +1,11 @@
 {
     "setup": {
         "maxLen": 100,
+        "openWeather": {
+            "apiKey": "7250c65f946f7133658dd6c28e188901",
+            "cityId": "2759794",
+            "interval": 300000
+        },
         "graph": {
             "width": 400,
             "height": 75,
@@ -13,15 +18,18 @@
     "sensors": [
         {
             "id": "53ff6d066667574834441267",
-            "name" : "Neo"
+            "name" : "Neo",
+            "type": "iot"
         },
         {
             "id": "2e002c000a47343337373738",
-            "name" : "Morph"
+            "name" : "Morph",
+            "type": "iot"
         },
         {
             "id": "3d003c000d47343233323032",
-            "name" : "Trinity"
+            "name" : "Trinity",
+            "type": "iot"
         }
     ],
     "measurements": [
