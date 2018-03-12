@@ -1,11 +1,6 @@
 {
     "setup": {
         "maxLen": 100,
-        "openWeather": {
-            "apiKey": "7250c65f946f7133658dd6c28e188901",
-            "cityId": "2759794",
-            "interval": 300000
-        },
         "graph": {
             "width": 400,
             "height": 75,
@@ -13,9 +8,34 @@
             "displayTitle": false,
             "titleSize": 16,
             "type": "line"
+        },
+        "websensors": {
+            "OpenWeather": {
+                "className": "OpenWeather",
+                "apiKey": "7250c65f946f7133658dd6c28e188901"
+                
+            },
+            "WunderGround": {
+               "className": "WunderGround",
+               "apiKey": "4e8efbd62eb9ae60"
+            }
         }
     },
     "sensors": [
+        {
+            "id": "OpenWeather",
+            "name" : "OpenWeather",
+            "type": "web",
+            "cityId": "2759794",
+            "interval": 300000
+        },
+        {
+            "id": "WunderGround",
+            "name" : "WunderGround",
+            "type": "web",
+            "cityId": "IZAANDIJ6",
+            "interval": 300000
+        },
         {
             "id": "53ff6d066667574834441267",
             "name" : "Neo",

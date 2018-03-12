@@ -17,20 +17,7 @@ function loadSensors(config) {
   var sensors = config.sensors;
   var measurements = config.measurements;
   var setup = config.setup;
-  
-  var openweather = null;
-  var openweatherInterval = 0;
-  if ("openWeather" in setup) {
-    var openWeatherData = setup.openWeather;
-    if (( "apiKey" in openWeatherData ) && ( "cityId" in openWeatherData )) {
-      var openweatherInst = new OpenWeather(openWeatherData.apiKey);
-      openweatherInterval = openWeatherData.interval;
-      console.log("openweather",openweatherInst);
-      openweather = function(clbk) { openweatherInst.getById(clbk, openWeatherData.cityId); };
-      sensors.push({ "id": "OpenWeather", "name": "OpenWeather", "type": "mock" });
-    }
-  }
-  
+  var websensors = setup.websensors;
   
   $.each(measurements, function(measumentNum, measurementData){
     var measurementKey = measurementData.key;
@@ -45,6 +32,48 @@ function loadSensors(config) {
     $.each(sensors, function(sensorNum, sensorInfo) {
       var sensorId = sensorInfo.id;
       var sensorName = sensorInfo.name;
+      var sensorType = sensorInfo.type;
+      
+      if ( sensorType == "web" ) {
+          if ( sensorName in websensors ) {
+            var webSensorData = websensors[sensorName];
+            var webSensorCls = webSensorData.className;
+            
+            if (
+                  ( "className" in webSensorData ) && 
+                  ( "apiKey"    in webSensorData ) &&
+                  ( "cityId"    in sensorInfo    ) &&
+                  ( "interval"  in sensorInfo    )
+                ) {
+                  
+              var webSensorClassName = webSensorData.className;
+              var webSensorApiKey = webSensorData.apiKey;
+                  
+              try {
+                var cls = eval(webSensorClassName);
+              } catch (err) {
+                console.error(err);
+                console.warn("websensor ", sensorInfo, webSensorData, " class not imported");
+                raise;
+              }
+              
+              var webSensorCityId = sensorInfo.cityId;
+              var webSensorInst = new cls(webSensorApiKey);
+              
+              var webSensor = function(clbk) { webSensorInst.getById(clbk, webSensorCityId); };
+              
+              sensorInfo.caller = webSensor;
+            } else {
+              console.warn("websensor ", sensorInfo, webSensorData, " not properly configured in setup");
+              return;
+            }
+          } else {
+            console.warn("websensor ", sensorInfo, webSensorData, " not found in setup");
+            return;
+          }
+      }
+
+      
       var rgb = hexToRGB(colorPallet[sensorNum]);
       var mainColor = "rgba("+rgb[0]+", "+rgb[1]+", "+rgb[2]+", 1.0)";
       var backgroundColor = "rgba("+rgb[0]+", "+rgb[1]+", "+rgb[2]+", 0.4)";
@@ -67,7 +96,7 @@ function loadSensors(config) {
         data: []
       };
       
-      dataCfg[measurementKey].push( sensorInfo.data[measurementKey] );
+      dataCfg[measurementKey].push( sensorInfo.data[measurementKey] );      
     });
   });
 
@@ -139,17 +168,30 @@ function loadSensors(config) {
 
   $('#stats').html("Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.");
 
-  if ( openweather ) {
-    genOpenWeatherMessage(openweather, function(obj) {
-        processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
-    });
-      
-    setInterval(function() {
-      genOpenWeatherMessage(openweather, function(obj) {
-        processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
-      });
-    }, openweatherInterval);
-  }
+
+  
+  
+  $.each(sensors, function(sensorNum, sensorInfo) {
+      if ( sensorInfo.type == "web" ) {
+        if ( "caller" in sensorInfo ) { 
+          var webSensorId = sensorInfo.id;
+          var webSensorCaller = sensorInfo.caller;
+          var webSensorInterval = sensorInfo.interval;
+          
+          genWebMessage(webSensorId, webSensorCaller, function(obj) {
+              processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
+          });
+            
+          setInterval(function() {
+            genWebMessage(webSensorId, webSensorCaller, function(obj) {
+              processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
+            });
+          }, webSensorInterval);
+        }
+      }
+  });
+
+
   
   var ws = new WebSocket("wss://" + location.host);
   ws.onopen = function () {
@@ -271,11 +313,11 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, chart
   }
 }
 
-function genOpenWeatherMessage(openweather, clbk) {
-  openweather(function(d) {
-    $("#weather").html( d.toStr() );
+function genWebMessage(deviceId, caller, clbk) {
+  caller(function(d) {
+    $("#weather_"+deviceId).html( d.toStr() );
     clbk({
-      device_id: "OpenWeather",
+      device_id: deviceId,
       sens: "Web",
       vers: "NA",
       published_at: genTimeStamp(),

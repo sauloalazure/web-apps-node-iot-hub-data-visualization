@@ -1,5 +1,49 @@
 //https://openweathermap.org/current
 
+class OpenWeather {
+	constructor(api_key) {
+		this.api_key = api_key;
+		this.api_ver = "2.5";
+		this.prot = "https";
+		this.units = "metric";
+		this.url = this.prot+"://api.openweathermap.org/data/"+this.api_ver;
+	}
+	
+	getByName(clbk, city_name) {
+		var url = this.url + "/weather?q=" + city_name;
+		this._get(clbk, url);
+	}
+	
+	getByLocation(clbk, lat, lon) {
+		var url = this.url + "/weather?lat=" + lat + "&lon=" + lon;
+		this._get(clbk, url);
+	}
+	
+	getByZip(clbk, zip) {
+		var url = this.url + "/weather?zip=" + zip;
+		this._get(clbk, url);
+	}
+	
+	getById(clbk, city_id) {
+		var url = this.url + "/weather?id=" + city_id;
+		this._get(clbk, url);
+	}
+	
+	_get(clbk, url) {
+		var q = url + "&units=" + this.units + "&appid=" + this.api_key;
+		// console.log("q",q);
+		$.getJSON(q, function(json) {
+			// console.log(json); // this will show the info it in firebug console
+			clbk(new OpenWeatherData(json));
+		})
+		.fail(function( jqxhr, textStatus, error ) {
+			var err = textStatus + ", " + error;
+			console.error( "Request Failed: " + err );
+		});
+	}
+}
+
+
 class OpenWeatherData {
 	// {
 	// "coord": {"lon":4.89,"lat":52.37},
@@ -55,7 +99,7 @@ class OpenWeatherData {
 	get name()        { return this.data.name; }
 	get code()        { return this.data.cod; }
 	
-	get isValid()     { return this.data.cod == 200; }
+	get isValid()     { return this.code == 200; }
 	
 	toStr() {
 		if ( ! this.isValid ) {
@@ -74,48 +118,5 @@ class OpenWeatherData {
 			"This information was last updated at " + this.time + "<br/>" 
 			;
 		}
-	}
-}
-
-class OpenWeather {
-	constructor(api_key) {
-		this.api_key = api_key;
-		this.api_ver = "2.5";
-		this.prot = "https";
-		this.units = "metric";
-		this.url = this.prot+"://api.openweathermap.org/data/"+this.api_ver;
-	}
-	
-	getByName(clbk, city_name) {
-		var url = this.url + "/weather?q=" + city_name;
-		this._get(clbk, url);
-	}
-	
-	getByLocation(clbk, lat, lon) {
-		var url = this.url + "/weather?lat=" + lat + "&lon=" + lon;
-		this._get(clbk, url);
-	}
-	
-	getByZip(clbk, zip) {
-		var url = this.url + "/weather?zip=" + zip;
-		this._get(clbk, url);
-	}
-	
-	getById(clbk, city_id) {
-		var url = this.url + "/weather?id=" + city_id;
-		this._get(clbk, url);
-	}
-	
-	_get(clbk, url) {
-		var q = url + "&units=" + this.units + "&appid=" + this.api_key;
-		// console.log("q",q);
-		$.getJSON(q, function(json) {
-			// console.log(json); // this will show the info it in firebug console
-			clbk(new OpenWeatherData(json));
-		})
-		.fail(function( jqxhr, textStatus, error ) {
-			var err = textStatus + ", " + error;
-			console.error( "Request Failed: " + err );
-		});
 	}
 }
