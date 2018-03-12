@@ -11,8 +11,6 @@ $(document).ready(function () {
   
 function loadSensors(config) {
   var timeData = [];     
-  var sensorIds = {}; 
-  var charts = {};
   var sensors = config.sensors;
   var measurements = config.measurements;
   var setup = config.setup;
@@ -74,7 +72,6 @@ function loadSensors(config) {
       var rgb = hexToRGB(colorPallet[sensorNum]);
       var mainColor = "rgba("+rgb[0]+", "+rgb[1]+", "+rgb[2]+", 1.0)";
       var backgroundColor = "rgba("+rgb[0]+", "+rgb[1]+", "+rgb[2]+", 0.4)";
-      sensorIds[sensorId] = sensorNum;
       
       if ( measumentNum == 0 ) {
         sensorInfo.data = {};
@@ -174,7 +171,7 @@ function loadSensors(config) {
         var webSensorInterval = sensorInfo.interval;
         var webSensorSender = function() {
           genWebMessage(webSensorId, webSensorCaller, function(obj) {
-              processMessage(setup, measurements, sensors, sensorIds, timeData, obj);
+              processMessage(setup, measurements, sensors, timeData, obj);
           });
         }
     
@@ -202,7 +199,7 @@ function loadSensors(config) {
 
     try {
       var obj = JSON.parse(message.data);
-      processMessage(setup, measurements, sensors, sensorIds, timeData, obj);
+      processMessage(setup, measurements, sensors, timeData, obj);
 
     } catch (err) {
       console.error(err);
@@ -214,7 +211,7 @@ function loadSensors(config) {
 
 
 
-function processMessage(setup, measurements, sensors, sensorIds, timeData, obj) {
+function processMessage(setup, measurements, sensors, timeData, obj) {
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
     console.log("misformed data");
     return;
@@ -228,6 +225,11 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, obj) 
       return;
     }
   }
+  
+  var sensorIds = {};
+  $.each(sensors, function(sensorNum, sensorInfo) {
+      sensorIds[sensorInfo.id] = sensorNum;
+  });
 
   var sensorId = obj.device_id;
   var sens = obj.sens;
