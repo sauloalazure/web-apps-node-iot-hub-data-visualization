@@ -1,4 +1,4 @@
-  $(document).ready(function () {
+$(document).ready(function () {
   $.getJSON("sensors.json", function(json) {
     console.log(json); // this will show the info it in firebug console
     loadSensors(json);
@@ -137,7 +137,7 @@ function loadSensors(config) {
     yaxis.afterFit = function(scaleInstance) { if (ylabelwidth < scaleInstance.width) { ylabelwidth = scaleInstance.width; } else { scaleInstance.width = ylabelwidth; } };
     xaxis.afterFit = function(scaleInstance) { if (xlabelwidth < scaleInstance.width) { xlabelwidth = scaleInstance.width; } else { scaleInstance.width = xlabelwidth; } };
         
-    charts[measurementKey] = new Chart(ctx, {
+    measurementData.chart = new Chart(ctx, {
       "type": setup.graph.type,
       "data": {
         labels: timeData,
@@ -174,7 +174,7 @@ function loadSensors(config) {
         var webSensorInterval = sensorInfo.interval;
         var webSensorSender = function() {
           genWebMessage(webSensorId, webSensorCaller, function(obj) {
-              processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
+              processMessage(setup, measurements, sensors, sensorIds, timeData, obj);
           });
         }
     
@@ -202,7 +202,7 @@ function loadSensors(config) {
 
     try {
       var obj = JSON.parse(message.data);
-      processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
+      processMessage(setup, measurements, sensors, sensorIds, timeData, obj);
 
     } catch (err) {
       console.error(err);
@@ -214,7 +214,7 @@ function loadSensors(config) {
 
 
 
-function processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj) {
+function processMessage(setup, measurements, sensors, sensorIds, timeData, obj) {
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
     console.log("misformed data");
     return;
@@ -302,16 +302,14 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, chart
       var measurementKey = measurementData.key;
       $.each(sensors, function(sensorNum, sensorInfo) {
         //var sensorIdL = sensorInfo.id;
-        var sensorData = sensorInfo.data;
-        sensorData[measurementKey].data.shift();
+        sensorInfo.data[measurementKey].data.shift();
       });
     });
   }
 
   for ( var i=0; i < 2; i++ ) { // run twice to aling lables
     $.each(measurements, function(measumentNum, measurementData){
-      var measurementKey = measurementData.key;
-      charts[measurementKey].update();
+      measurementData.chart.update();
     });
   }
 }
