@@ -2,19 +2,22 @@
 
 class WunderGround {
 	constructor(api_key) {
+		//IZAANDIJ4 DOMINEESTUIN
+		//IZAANDIJ6 Zaandijk Rooswijk
 		//https://api.wunderground.com/api/4e8efbd62eb9ae60/conditions/labels/lang:EN/units:metric/bestfct:1/v:2.0/q/pws:IZAANDIJ6.json?ttl=120
 		this.prot    = "https";
 		this.api_key = api_key;
 		this.lang    = "EN";
 		this.units   = "metric";
 		this.bestfct = "1";
+		this.pws     = "1";
 		this.api_ver = "2.0";
 		this.ttl     = "120";
-		this.url     = this.prot+"://api.wunderground.com/api/"+this.api_key+"/conditions/labels/lang:"+this.lang+"/units:"+this.units+"/bestfct:"+this.bestfct+"/v:"+this.api_ver+"/q/";//pws:IZAANDIJ6.json?ttl=120";
+		this.url     = this.prot+"://api.wunderground.com/api/"+this.api_key+"/conditions/labels/lang:"+this.lang+"/units:"+this.units+"/bestfct:"+this.bestfct+"/pws:"+this.pws+"/v:"+this.api_ver+"/q/";//pws:IZAANDIJ6.json?ttl=120";
 	}
 	
 	getById(clbk, city_id) {
-		var url = this.url + "pws:" + city_id + ".json";
+		var url = this.url + city_id + ".json";
 		this._get(clbk, url);
 	}
 	
@@ -300,19 +303,21 @@ class WunderGroundData {
 	// "current_observation.cloud_description.oktas": 3,
 	get cloudOktas() { return this.data.current_observation.cloud_description.oktas; }
 	
+	
+	get cloundNumLayers() { return this.data.current_observation.cloud_description.layers.length; }
 	get cloudLayers() { return this.data.current_observation.cloud_description.layers; }
 	// "current_observation.cloud_description.layers[0].height": 60,
-	get cloudHeight() { return this.data.current_observation.cloud_description.layers; }
+	get cloudHeight() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].height ); }; return r; }
 	// "current_observation.cloud_description.layers[0].height_char": null,
-	get cloudHeightChar() { return this.data.current_observation.cloud_description.layers; }
+	get cloudHeightChar() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].height_char ); }; return r; }
 	// "current_observation.cloud_description.layers[0].cover": "FEW",
-	get cloudCover() { return this.data.current_observation.cloud_description.layers; }
+	get cloudCover() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].cover ); }; return r; }
 	// "current_observation.cloud_description.layers[0].cover_text": "Few",
-	get cloudCoverText() { return this.data.current_observation.cloud_description.layers; }
+	get cloudCoverText() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].cover_text ); }; return r; }
 	// "current_observation.cloud_description.layers[0].oktas": "1",
-	get cloudOktas() { return this.data.current_observation.cloud_description.layers; }
+	get cloudOktas() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].oktas ); }; return r; }
 	// "current_observation.cloud_description.layers[0].other": null
-	get cloudOther() { return this.data.current_observation.cloud_description.layers; }
+	get cloudOther() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].other ); }; return r; }
 	
 	
 	// "current_observation.cod_wspd": null,
@@ -491,10 +496,6 @@ class WunderGroundData {
 	get coordLat()  { return this.latitude; }
 	get coordLon()  { return this.longitude; }
 	
-	get weatherData()        { return [this.weatherClass, this.weatherDescription]; }
-	get weatherClass()       { return null; }
-	get weatherDescription() { return null; }
-	
 	get temperatureMin() { return null; }
 	get temperatureMax() { return null; }
 	get _pressure()      { return this.pressure; }
@@ -504,7 +505,7 @@ class WunderGroundData {
 	get windData()   { return [this.windSpeed, this.windDeg]; }
 	get windDeg()    { return this.windDirDegrees; }
 	
-	get clouds()     { return this.condition; }
+	get clouds()     { return this.cloudCoverText.length > 0 ? this.cloudCoverText[0] : "no"; }
 	
 	get time()       { return new Date(this.dateEpoch*1000); }
 	
@@ -523,11 +524,8 @@ class WunderGroundData {
 			(this.temperature < 15 ? "cold" : "warm") + " " +
 			this.temperature + " degrees (C) " +
 			"with wind speed of " + this.windSpeed + "m/s" +
-			", " + this.clouds + "% cloud coverage" +
+			", " + this.clouds + " clouds" +
 			", air pressure of " + this.pressurePa + "Pa" + ", " + 
-			"being classified as a " + this.weatherDescription + " day.<br/>" +
-			"You should expect sunrise at " + this.sunrise + " " +
-			"and sunset at " + this.sunset + ".<br/>" +
 			"This information was last updated at " + this.time + "<br/>" 
 			;
 		}

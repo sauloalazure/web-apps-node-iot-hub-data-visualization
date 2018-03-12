@@ -3,7 +3,7 @@
         "maxLen": 100,
         "graph": {
             "width": 400,
-            "height": 75,
+            "height": 50,
             "labelPosition": "right",
             "displayTitle": false,
             "titleSize": 16,
@@ -33,7 +33,7 @@
             "id": "WunderGround",
             "name" : "WunderGround",
             "type": "web",
-            "cityId": "IZAANDIJ6",
+            "cityId": "pws:IZAANDIJ6",
             "interval": 300000
         },
         {
