@@ -10,11 +10,11 @@ $(document).ready(function () {
 });
   
 function loadSensors(config) {
-  var timeData = [];     
   var sensors = config.sensors;
   var measurements = config.measurements;
   var setup = config.setup;
   var websensors = setup.websensors;
+  config.timeData = [];   
   
   $.each(measurements, function(measumentNum, measurementData){
     var measurementKey = measurementData.key;
@@ -109,10 +109,6 @@ function loadSensors(config) {
     
     $( "#graphs" ).append( $chart ); 
     
-    // console.log('timeData', timeData);
-    // console.log('dataset', measurementData.cfg);
-    // console.log('axis', measurementData.axis);
-    
     // var optionsNoAnimation = { animation: false };
     var ctx = document.getElementById("myChart_"+measurementKey).getContext("2d");
     var yaxis = measurementData.axis;
@@ -137,7 +133,7 @@ function loadSensors(config) {
     measurementData.chart = new Chart(ctx, {
       "type": setup.graph.type,
       "data": {
-        labels: timeData,
+        labels: config.timeData,
         datasets: measurementData.cfg
       },
       "options": {
@@ -171,7 +167,7 @@ function loadSensors(config) {
         var webSensorInterval = sensorInfo.interval;
         var webSensorSender = function() {
           genWebMessage(webSensorId, webSensorCaller, function(obj) {
-              processMessage(setup, measurements, sensors, timeData, obj);
+              processMessage(config, obj);
           });
         }
     
@@ -199,7 +195,7 @@ function loadSensors(config) {
 
     try {
       var obj = JSON.parse(message.data);
-      processMessage(setup, measurements, sensors, timeData, obj);
+      processMessage(config, obj);
 
     } catch (err) {
       console.error(err);
@@ -211,7 +207,13 @@ function loadSensors(config) {
 
 
 
-function processMessage(setup, measurements, sensors, timeData, obj) {
+function processMessage(config, obj) {
+  var sensors = config.sensors;
+  var measurements = config.measurements;
+  var setup = config.setup;
+  var websensors = setup.websensors;
+  var timeData = config.timeData;   
+
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
     console.log("misformed data");
     return;
