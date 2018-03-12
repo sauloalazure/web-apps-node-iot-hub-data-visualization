@@ -2,7 +2,7 @@
     "setup": {
         "maxLen": 100,
         "graph": {
-            "width": 400,
+            "width": 350,
             "height": 50,
             "labelPosition": "right",
             "displayTitle": false,

@@ -1,4 +1,4 @@
-$(document).ready(function () {
+  $(document).ready(function () {
   $.getJSON("sensors.json", function(json) {
     console.log(json); // this will show the info it in firebug console
     loadSensors(json);
@@ -11,7 +11,6 @@ $(document).ready(function () {
   
 function loadSensors(config) {
   var timeData = [];     
-  var dataCfg = {};
   var sensorIds = {}; 
   var charts = {};
   var sensors = config.sensors;
@@ -27,7 +26,7 @@ function loadSensors(config) {
     var fill = measurementData.fill;
     var colorScheme = measurementData.colorScheme;
     var colorPallet = palette(colorScheme, sensors.length);
-    dataCfg[measurementKey] = [];
+    measurementData.cfg = [];
 
     $.each(sensors, function(sensorNum, sensorInfo) {
       var sensorId = sensorInfo.id;
@@ -60,9 +59,7 @@ function loadSensors(config) {
               var webSensorCityId = sensorInfo.cityId;
               var webSensorInst = new cls(webSensorApiKey);
               
-              var webSensor = function(clbk) { webSensorInst.getById(clbk, webSensorCityId); };
-              
-              sensorInfo.caller = webSensor;
+              sensorInfo.caller = function(clbk) { webSensorInst.getById(clbk, webSensorCityId); };
             } else {
               console.warn("websensor ", sensorInfo, webSensorData, " not properly configured in setup");
               return;
@@ -96,7 +93,7 @@ function loadSensors(config) {
         data: []
       };
       
-      dataCfg[measurementKey].push( sensorInfo.data[measurementKey] );      
+      measurementData.cfg.push( sensorInfo.data[measurementKey] );      
     });
   });
 
@@ -116,7 +113,7 @@ function loadSensors(config) {
     $( "#graphs" ).append( $chart ); 
     
     // console.log('timeData', timeData);
-    // console.log('dataset', dataCfg[measurementKey]);
+    // console.log('dataset', measurementData.cfg);
     // console.log('axis', measurementData.axis);
     
     // var optionsNoAnimation = { animation: false };
@@ -144,7 +141,7 @@ function loadSensors(config) {
       "type": setup.graph.type,
       "data": {
         labels: timeData,
-        datasets: dataCfg[measurementKey]
+        datasets: measurementData.cfg
       },
       "options": {
         title: {
@@ -166,29 +163,31 @@ function loadSensors(config) {
   });
 
 
-  $('#stats').html("Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.");
-
-
+  $('#stats').html("<small>Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.</small>");
   
   
   $.each(sensors, function(sensorNum, sensorInfo) {
-      if ( sensorInfo.type == "web" ) {
-        if ( "caller" in sensorInfo ) { 
-          var webSensorId = sensorInfo.id;
-          var webSensorCaller = sensorInfo.caller;
-          var webSensorInterval = sensorInfo.interval;
-          
+    if ( sensorInfo.type == "web" ) {
+      if ( "caller" in sensorInfo ) { 
+        var webSensorId = sensorInfo.id;
+        var webSensorCaller = sensorInfo.caller;
+        var webSensorInterval = sensorInfo.interval;
+        var webSensorSender = function() {
           genWebMessage(webSensorId, webSensorCaller, function(obj) {
               processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
           });
-            
-          setInterval(function() {
-            genWebMessage(webSensorId, webSensorCaller, function(obj) {
-              processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
-            });
-          }, webSensorInterval);
         }
+    
+        $("#weather").append( $("<small>", {id: "weather_"+webSensorId}) );
+        $("#weather").append( $("<br>") );
+        
+        sensorInfo.sender = webSensorSender; 
+        
+        webSensorSender();
+          
+        setInterval(function() { webSensorSender(); }, webSensorInterval);
       }
+    }
   });
 
 
@@ -203,14 +202,17 @@ function loadSensors(config) {
 
     try {
       var obj = JSON.parse(message.data);
-
       processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj);
-      
+
     } catch (err) {
       console.error(err);
     }
   };
 }
+
+
+
+
 
 function processMessage(setup, measurements, sensors, sensorIds, timeData, charts, obj) {
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
@@ -224,7 +226,7 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, chart
     if (!(measurementKey in obj)) {
       console.log("misformed data. missing", measurementKey, "key");
       return;
-    } 
+    }
   }
 
   var sensorId = obj.device_id;
@@ -249,6 +251,7 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, chart
   if ( timeData.length == 1 ) {
     $('#firstDatapoint').html(stime);
   }
+  
   $('#numDatapoints').html(timeData.length);
   $('#maxDatapoints').html(setup.maxLen);
   $('#lastDatapoint').html(stime);
@@ -290,9 +293,9 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, chart
     });
   });
   
-  // // only keep no more than 50 points in the line chart
   
-  if (timeData.length > setup.maxLen) {
+  // only keep no more than maxLen points in the line chart  
+  if (timeData.length >= setup.maxLen) {
     // console.log('cleaning');
     timeData.shift();
     $.each(measurements, function(measumentNum, measurementData){
@@ -304,8 +307,8 @@ function processMessage(setup, measurements, sensors, sensorIds, timeData, chart
       });
     });
   }
-      
-  for ( var i=0; i < 2; i++ ) {
+
+  for ( var i=0; i < 2; i++ ) { // run twice to aling lables
     $.each(measurements, function(measumentNum, measurementData){
       var measurementKey = measurementData.key;
       charts[measurementKey].update();

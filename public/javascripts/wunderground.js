@@ -13,7 +13,8 @@ class WunderGround {
 		this.pws     = "1";
 		this.api_ver = "2.0";
 		this.ttl     = "120";
-		this.url     = this.prot+"://api.wunderground.com/api/"+this.api_key+"/conditions/labels/lang:"+this.lang+"/units:"+this.units+"/bestfct:"+this.bestfct+"/pws:"+this.pws+"/v:"+this.api_ver+"/q/";//pws:IZAANDIJ6.json?ttl=120";
+		this.withLabels = false;
+		this.url     = this.prot+"://api.wunderground.com/api/"+this.api_key+"/conditions/"+(this.withLabels ? "labels/" : "")+"lang:"+this.lang+"/units:"+this.units+"/bestfct:"+this.bestfct+"/pws:"+this.pws+"/v:"+this.api_ver+"/q/";//pws:IZAANDIJ6.json?ttl=120";
 	}
 	
 	getById(clbk, city_id) {
@@ -304,20 +305,20 @@ class WunderGroundData {
 	get cloudOktas() { return this.data.current_observation.cloud_description.oktas; }
 	
 	
-	get cloundNumLayers() { return this.data.current_observation.cloud_description.layers.length; }
 	get cloudLayers() { return this.data.current_observation.cloud_description.layers; }
+	get cloundNumLayers() { return this.cloudLayers.length; }
 	// "current_observation.cloud_description.layers[0].height": 60,
-	get cloudHeight() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].height ); }; return r; }
+	get cloudHeight() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].height ); }; return r; }
 	// "current_observation.cloud_description.layers[0].height_char": null,
-	get cloudHeightChar() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].height_char ); }; return r; }
+	get cloudHeightChar() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].height_char ); }; return r; }
 	// "current_observation.cloud_description.layers[0].cover": "FEW",
-	get cloudCover() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].cover ); }; return r; }
+	get cloudCover() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].cover ); }; return r; }
 	// "current_observation.cloud_description.layers[0].cover_text": "Few",
-	get cloudCoverText() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].cover_text ); }; return r; }
+	get cloudCoverText() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].cover_text ); }; return r; }
 	// "current_observation.cloud_description.layers[0].oktas": "1",
-	get cloudOktas() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].oktas ); }; return r; }
+	get cloudOktas() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].oktas ); }; return r; }
 	// "current_observation.cloud_description.layers[0].other": null
-	get cloudOther() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.layers[i].other ); }; return r; }
+	get cloudOther() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].other ); }; return r; }
 	
 	
 	// "current_observation.cod_wspd": null,
