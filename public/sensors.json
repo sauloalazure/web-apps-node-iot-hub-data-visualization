@@ -50,6 +50,16 @@
             "id": "3d003c000d47343233323032",
             "name" : "Trinity",
             "type": "iot"
+        },
+        {
+            "id": "200021000c47343438323536",
+            "name" : "Apoc",
+            "type": "iot"
+        },
+        {
+            "id": "420022001147343438323536",
+            "name" : "Switch",
+            "type": "iot"
         }
     ],
     "measurements": [
