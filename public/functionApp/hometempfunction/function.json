@@ -1,0 +1,23 @@
+{
+  "bindings": [
+    {
+      "type": "eventHubTrigger",
+      "name": "IoTHubMessages",
+      "direction": "in",
+      "path": "iothub-ehub-hometemp-376402-43dc77e878",
+      "connection": "hometemp_events_IOTHUB",
+      "cardinality": "many",
+      "consumerGroup": "hometempconsumergroup"
+    },
+    {
+      "type": "documentDB",
+      "name": "outputDocument",
+      "databaseName": "hometempdb",
+      "collectionName": "hometempcollection",
+      "createIfNotExists": true,
+      "connection": "hometempcosmos_DOCUMENTDB",
+      "direction": "out"
+    }
+  ],
+  "disabled": false
+}

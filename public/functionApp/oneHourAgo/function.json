@@ -1,0 +1,28 @@
+{
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"
+    },
+    {
+      "type": "documentDB",
+      "name": "inputDocument",
+      "databaseName": "hometempdb",
+      "collectionName": "hometempcollection",
+      "connection": "hometempcosmos_DOCUMENTDB",
+      "direction": "in",
+      "sqlQuery": "SELECT * FROM c WHERE c._ts >= udf.oneHourAgo() ORDER BY c._ts DESC"
+    }
+  ],
+  "disabled": false
+}

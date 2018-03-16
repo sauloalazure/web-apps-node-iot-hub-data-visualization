@@ -1,0 +1,3 @@
+function oneDayAgo() {
+    return (new Date().getTime()/1000) - 86400;
+}

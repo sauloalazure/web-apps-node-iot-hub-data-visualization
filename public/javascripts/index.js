@@ -10,6 +10,9 @@ $(document).ready(function () {
     
     loadSensors(json);
     
+    // https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour
+    // https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day
+    
     var ws = new WebSocket("wss://" + location.host);
     
     ws.onclose = onSocketError; 
