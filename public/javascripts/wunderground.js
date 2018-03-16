@@ -306,7 +306,7 @@ class WunderGroundData {
 	
 	
 	get cloudLayers() { return this.data.current_observation.cloud_description.layers; }
-	get cloundNumLayers() { return this.cloudLayers.length; }
+	get cloundNumLayers() { return this.cloudLayers === null ? 0 : this.cloudLayers.length; }
 	// "current_observation.cloud_description.layers[0].height": 60,
 	get cloudHeight() { var r = []; for ( var i = 0; i < this.cloundNumLayers; i++ ) { r.push( this.cloudLayers[i].height ); }; return r; }
 	// "current_observation.cloud_description.layers[0].height_char": null,

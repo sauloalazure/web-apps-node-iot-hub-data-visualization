@@ -1,9 +1,9 @@
 {
     "setup": {
-        "maxLen": 100,
+        "maxLen": 60,
         "graph": {
             "width": 350,
-            "height": 50,
+            "height": 60,
             "labelPosition": "right",
             "displayTitle": false,
             "titleSize": 16,
@@ -39,27 +39,32 @@
         {
             "id": "53ff6d066667574834441267",
             "name" : "Neo",
-            "type": "iot"
+            "type": "iot",
+            "desc": "Missing"
         },
         {
             "id": "2e002c000a47343337373738",
             "name" : "Morph",
-            "type": "iot"
+            "type": "iot",
+            "desc": "1st Floor"
         },
         {
             "id": "3d003c000d47343233323032",
             "name" : "Trinity",
-            "type": "iot"
+            "type": "iot",
+            "desc": "G Floor Front"
         },
         {
             "id": "200021000c47343438323536",
             "name" : "Apoc",
-            "type": "iot"
+            "type": "iot",
+            "desc": "G Floor Back"
         },
         {
             "id": "420022001147343438323536",
             "name" : "Switch",
-            "type": "iot"
+            "type": "iot",
+            "desc": "Offline"
         }
     ],
     "measurements": [
@@ -68,7 +73,7 @@
             "label": "Temperature (C)",
             "type": "line",
             "fill": false,
-            "colorScheme": "cb-YlOrRd",
+            "colorScheme": "mpn65",
             "axis": {
                 "id": "Temperature",
                 "type": "linear",
@@ -84,7 +89,7 @@
             "label": "Pressure (Pa)",
             "type": "line",
             "fill": false,
-            "colorScheme": "cb-BuPu",
+            "colorScheme": "mpn65",
             "axis": {
                 "id": "Pressure",
                 "type": "linear",
@@ -100,7 +105,7 @@
             "label": "Humidity (%)",
             "type": "line",
             "fill": false,
-            "colorScheme": "cb-YlGnBu",
+            "colorScheme": "mpn65",
             "axis": {
                 "id": "Humidity",
                 "type": "linear",

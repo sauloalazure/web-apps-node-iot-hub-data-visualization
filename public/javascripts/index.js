@@ -1,7 +1,31 @@
+/* global palette */
+/* global $ */
+/* global Chart */
+
 $(document).ready(function () {
   $.getJSON("sensors.json", function(json) {
     console.log(json); // this will show the info it in firebug console
+    
+    window.data = json;
+    
     loadSensors(json);
+    
+    var ws = new WebSocket("wss://" + location.host);
+      ws.onopen = function () {
+      console.log("Successfully connect WebSocket");
+    };
+    
+    ws.onmessage = function (message) {
+      console.log("receive message" + message.data);
+      
+      try {
+        var obj = JSON.parse(message.data);
+        processMessage(json, obj);
+        
+      } catch (err) {
+        console.error(err);
+      }
+    };
   })
   .fail(function( jqxhr, textStatus, error ) {
     var err = textStatus + ", " + error;
@@ -27,14 +51,14 @@ function loadSensors(config) {
     measurementData.cfg = [];
 
     $.each(sensors, function(sensorNum, sensorInfo) {
-      var sensorId = sensorInfo.id;
+      // var sensorId = sensorInfo.id;
       var sensorName = sensorInfo.name;
       var sensorType = sensorInfo.type;
+      var sensorDesc = sensorInfo.desc;
       
       if ( sensorType == "web" ) {
           if ( sensorName in websensors ) {
             var webSensorData = websensors[sensorName];
-            var webSensorCls = webSensorData.className;
             
             if (
                   ( "className" in webSensorData ) && 
@@ -47,15 +71,15 @@ function loadSensors(config) {
               var webSensorApiKey = webSensorData.apiKey;
                   
               try {
-                var cls = eval(webSensorClassName);
+                var Cls = eval(webSensorClassName);
               } catch (err) {
                 console.error(err);
                 console.warn("websensor ", sensorInfo, webSensorData, " class not imported");
-                raise;
+                throw "websensor " + webSensorClassName + " class not imported";
               }
               
               var webSensorCityId = sensorInfo.cityId;
-              var webSensorInst = new cls(webSensorApiKey);
+              var webSensorInst = new Cls(webSensorApiKey);
               
               sensorInfo.caller = function(clbk) { webSensorInst.getById(clbk, webSensorCityId); };
             } else {
@@ -81,7 +105,7 @@ function loadSensors(config) {
         "fill": fill,
         "type": gtype,
         "yAxisID": axis.id,
-        "label": label + " " + sensorName,
+        "label": label + " " + sensorName + (sensorDesc ? " ("+sensorDesc+")" : ""),
         borderColor: mainColor,
         pointBoarderColor: mainColor,
         pointHoverBorderColor: mainColor,
@@ -165,42 +189,21 @@ function loadSensors(config) {
         var webSensorId = sensorInfo.id;
         var webSensorCaller = sensorInfo.caller;
         var webSensorInterval = sensorInfo.interval;
-        var webSensorSender = function() {
+        sensorInfo.sender = function() {
           genWebMessage(webSensorId, webSensorCaller, function(obj) {
               processMessage(config, obj);
           });
-        }
+        };
     
         $("#weather").append( $("<small>", {id: "weather_"+webSensorId}) );
         $("#weather").append( $("<br>") );
         
-        sensorInfo.sender = webSensorSender; 
-        
-        webSensorSender();
+        sensorInfo.sender();
           
-        setInterval(function() { webSensorSender(); }, webSensorInterval);
+        setInterval(function() { sensorInfo.sender(); }, webSensorInterval);
       }
     }
   });
-
-
-  
-  var ws = new WebSocket("wss://" + location.host);
-  ws.onopen = function () {
-    console.log("Successfully connect WebSocket");
-  };
-  
-  ws.onmessage = function (message) {
-    console.log("receive message" + message.data);
-
-    try {
-      var obj = JSON.parse(message.data);
-      processMessage(config, obj);
-
-    } catch (err) {
-      console.error(err);
-    }
-  };
 }
 
 
@@ -211,11 +214,13 @@ function processMessage(config, obj) {
   var sensors = config.sensors;
   var measurements = config.measurements;
   var setup = config.setup;
-  var websensors = setup.websensors;
-  var timeData = config.timeData;   
+  // var websensors = setup.websensors;
+  var timeData = config.timeData;
+  
+  console.log("processing message", obj);
 
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
-    console.log("misformed data");
+    console.warn("misformed data");
     return;
   }
 
@@ -223,7 +228,7 @@ function processMessage(config, obj) {
     var measurementData = measurements[measumentNum];
     var measurementKey = measurementData.key;
     if (!(measurementKey in obj)) {
-      console.log("misformed data. missing", measurementKey, "key");
+      console.warn("misformed data. missing", measurementKey, "key");
       return;
     }
   }
@@ -241,7 +246,7 @@ function processMessage(config, obj) {
   // console.log("sensorId", sensorId);
   // console.log("sens", sens);
   // console.log("vers", vers);
-  console.log("stime", stime);
+  // console.log("stime", stime);
   
   if ( !(sensorId in sensorIds) ) {
     console.warn("unknown sensor", sensorId, sensorIds);
@@ -250,7 +255,16 @@ function processMessage(config, obj) {
 
   var input = {};
 
-  timeData.push(stime);
+  var datePos = timeData.length;
+  for ( var d=0; d < timeData.length; d++ ) {
+    if ( timeData[d].getTime() == stime.getTime() ) { 
+        // console.warn("time", stime, "already present");
+        datePos = d;
+        break;
+    }
+  }
+
+  timeData[datePos] = stime;
 
   if ( timeData.length == 1 ) {
     $('#firstDatapoint').html(stime);
@@ -273,25 +287,29 @@ function processMessage(config, obj) {
 
   $.each(measurements, function(measumentNum, measurementData){
     var measurementKey = measurementData.key;
+    
     $.each(sensors, function(sensorNum, sensorInfo) {
       var sensorIdL = sensorInfo.id;
       var sensorData = sensorInfo.data;
       //var sensortype = sensorInfo.type;
+      var sensorMeasurementData = sensorData[measurementKey].data; 
 
-      if ( sensorId == sensorIdL ) {
-          sensorData[measurementKey].data.push(input[measurementKey]);
+      if ( sensorId == sensorIdL ) { // correct sensor
+          sensorMeasurementData[datePos] = input[measurementKey];
           if ( sens ) {
             if (!( "label_orig" in sensorData[measurementKey] )) {
               sensorData[measurementKey].label_orig  = sensorData[measurementKey].label;
-              sensorData[measurementKey].label      += " " + sens;
-              // console.log("new label ", measurementKey, sensorData[measurementKey].label, sensorData[measurementKey].label_orig);
+              sensorData[measurementKey].label      += " [" + sens + "]";
             }
           }
-      } else {
-        if (sensorData[measurementKey].data.length == 0) {
-          sensorData[measurementKey].data.push(null);
-        } else {
-          sensorData[measurementKey].data.push(sensorData[measurementKey].data[sensorData[measurementKey].data.length-1]);
+      } else { //wrong sensor
+        if ( sensorMeasurementData[datePos] ) { // already has data. skip
+        } else { // no data. set to null
+          if (sensorMeasurementData[datePos -1 ]) {
+            sensorMeasurementData[datePos] = sensorMeasurementData[datePos-1];
+          } else {
+            sensorMeasurementData[datePos] = null;
+          }
         }
       }
     });
@@ -312,15 +330,17 @@ function processMessage(config, obj) {
   }
 
   for ( var i=0; i < 2; i++ ) { // run twice to aling lables
-    $.each(measurements, function(measumentNum, measurementData){
-      measurementData.chart.update();
-    });
+    for ( var j=0; j < measurements.length; j++ ) {
+      measurements[j].chart.update();
+    }
   }
 }
 
 function genWebMessage(deviceId, caller, clbk) {
   caller(function(d) {
+    
     $("#weather_"+deviceId).html( d.toStr() );
+    
     clbk({
       device_id: deviceId,
       sens: "Web",
@@ -342,57 +362,61 @@ function genTimeStamp(){
   var date  = a.getUTCDate();
   var hour  = a.getUTCHours();
   var min   = a.getUTCMinutes();
-  var sec   = a.getUTCSeconds();
+  var sec   = 0; //a.getUTCSeconds();
+  var mil   = 0; //a.getUTCMilliseconds();
   var time  = year + '-' + 
-  (month < 10 ? '0' : '') + month + '-' + 
-  (date  < 10 ? '0' : '') + date  + 'T' + 
-  (hour  < 10 ? '0' : '') + hour  + ':' + 
-  (min   < 10 ? '0' : '') + min   + ':' + 
-  (sec   < 10 ? '0' : '') + sec   + '.000Z';
+  (month < 10 ?                    '0' : '') + month + '-' + 
+  (date  < 10 ?                    '0' : '') + date  + 'T' + 
+  (hour  < 10 ?                    '0' : '') + hour  + ':' + 
+  (min   < 10 ?                    '0' : '') + min   + ':' + 
+  (sec   < 10 ?                    '0' : '') + sec   + '.' +
+  (mil   < 10 ? '00' : mil < 100 ? '0' : '') + mil   + '.Z';
   return time;
 }
 
 function parseTimeStamp(ts) {
-  year  = ts.substr( 0,4);
-  month = ts.substr( 5,2);
-  date  = ts.substr( 8,2);
-  hour  = ts.substr(11,2);
-  min   = ts.substr(14,2);
-  sec   = ts.substr(17,2);
-  nd = new Date();
+  var year  = ts.substr( 0,4);
+  var month = ts.substr( 5,2);
+  var date  = ts.substr( 8,2);
+  var hour  = ts.substr(11,2);
+  var min   = ts.substr(14,2);
+  var sec   = 0; // ts.substr(17,2);
+  var mil   = 0; // ts.substr(20,3);
+  var nd    = new Date();
   nd.setUTCFullYear(year);
   nd.setUTCMonth(month-1);
   nd.setUTCDate(date);
   nd.setUTCHours(hour);
   nd.setUTCMinutes(min);
-  nd.setUTCSeconds(0);
+  nd.setUTCSeconds(sec);
+  nd.setUTCMilliseconds(mil);
   // console.log(ts+'year' + year + 'month' + month + 'date' + date + 'hour' + hour + 'min' + min + 'sec' + sec, nd);
   return nd;
 }
 
 function isJson(item) {
   //https://stackoverflow.com/questions/9804777/how-to-test-if-a-string-is-json-or-not
-    item = typeof item !== "string" ? JSON.stringify(item) : item;
+  item = typeof item !== "string" ? JSON.stringify(item) : item;
 
-    try {
-        item = JSON.parse(item);
-    } catch (e) {
-        return [ false, item ];
-    }
-
-    if (typeof item === "object" && item !== null) {
-        return [ true, item ];
-    }
-
+  try {
+    item = JSON.parse(item);
+  } catch (e) {
     return [ false, item ];
+  }
+  
+  if (typeof item === "object" && item !== null) {
+    return [ true, item ];
+  }
+  
+  return [ false, item ];
 }
 
 function hexToRGB(hex) {
   //http://www.javascripter.net/faq/hextorgb.htm
   
-  R = hexToR(hex);
-  G = hexToG(hex);
-  B = hexToB(hex);
+  var R = hexToR(hex);
+  var G = hexToG(hex);
+  var B = hexToB(hex);
 
   // return "rgba(150, 100, 0, 1.0)"
   return [R, G, B];
