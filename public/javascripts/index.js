@@ -8,6 +8,13 @@ $(document).ready(function () {
   // https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour
   // https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day
 
+  getSensors();
+  
+  setInterval(function() { checkConnection(); }, 1000);
+});
+
+
+function getSensors() {
   $.getJSON("sensors.json", function(config) {
     console.log(config); // this will show the info it in firebug console
     
@@ -16,15 +23,15 @@ $(document).ready(function () {
     loadSensors(config);
     
     connectWebSocket();
+
   })
   .fail(function( jqxhr, textStatus, error ) {
     var err = textStatus + ", " + error;
-    console.warning( "Failed to get configuration file: " + err );
+    console.warn( "Failed to get configuration file: " + err );
     displayConnectionInfo("error", 'Failed to get configuration file: ' + err);
+
   });
-  
-  setInterval(function() { checkConnection(); }, 1000);
-});
+}
 
 function connectWebSocket() {
   var ws = new WebSocket("wss://" + location.host);
@@ -45,7 +52,7 @@ function connectWebSocket() {
       displayConnectionInfo("good", 'message processed');
       
     } catch (err) {
-      console.warning(err);
+      console.warn(err);
       displayConnectionInfo("warning", 'error processing message: '+ err);
     }
   };
@@ -147,8 +154,9 @@ function loadSensors(config) {
       
       if ( measumentNum == 0 ) {
         sensorInfo.data = {};
+        setSensorLastSeen(sensorInfo, true);
       }
-      
+            
       sensorInfo.data[measurementKey] = {
         "fill": fill,
         "type": gtype,
@@ -257,6 +265,45 @@ function loadSensors(config) {
 
 
 
+function setSensorLastSeen(sensorInfo, isInit) {
+  console.log("setSensorLastSeen", sensorInfo, "isInit", isInit);
+  
+  var sensorId    = sensorInfo.id;
+  var sensorName  = sensorInfo.name;
+  var fieldId     = "#sensorStatus_"+sensorId;
+  var sensorField = $(fieldId);
+  
+  if (!( sensorField.length )) {
+    $("#sensorStatus").append($("<div>", { id: "sensorStatus_"+sensorId }));
+    sensorField = $(fieldId);
+  }
+  
+  var lastSeen = null;
+  var seenCount = 0;
+  if ( isInit ) {
+    sensorInfo.lastSeen = null;
+    sensorInfo.seenCount = 0;
+    lastSeen = "never";
+  } else {
+    lastSeen = new Date();
+    seenCount = sensorInfo.seenCount + 1;
+    // if ( sensorInfo.lastSeen ) { // was seen before
+    //   var diffDate = new Date((Date.now()) - sensorInfo.lastSeen);
+    //   console.log("diffDate", diffDate);
+    //   lastSeen = "Days: " + (diffDate.getDate() - 1) + ", Hours: " + diffDate.getHours() + ", Minutes: " + diffDate.getMinutes() + ", Seconds: " + diffDate.getSeconds() + " ago";
+    // } else { // never seen before
+    //   if ( ! isInit ) {
+    //     lastSeen = "Days: " + (diffDate.getDate() - 1) + ", Hours: " + diffDate.getHours() + ", Minutes: " + diffDate.getMinutes() + ", Seconds: " + diffDate.getSeconds() + " ago";
+    //   }
+    // }
+
+    sensorInfo.lastSeen = Date.now();
+    sensorInfo.seenCount += 1;
+  }
+    
+  $(fieldId).html("last message received from " + sensorName + ": " + lastSeen + ". " + seenCount + " message" + (seenCount != 1 ? "s" : "") + " received so far");
+}
+
 
 function processMessage(config, obj) {
   var sensors = config.sensors;
@@ -271,8 +318,6 @@ function processMessage(config, obj) {
     console.warn("misformed data");
     throw "misformed data";
   }
-
-  //sensorStatus
 
   for ( var measumentNum = 0; measumentNum < measurements.length; measumentNum++ ) {
     var measurementData = measurements[measumentNum];
@@ -315,6 +360,11 @@ function processMessage(config, obj) {
   }
 
   timeData[datePos] = stime;
+
+  
+  setSensorLastSeen(sensors[sensorIds[sensorId]]);
+
+
 
   if ( timeData.length == 1 ) {
     $('#firstDatapoint').html(stime);
