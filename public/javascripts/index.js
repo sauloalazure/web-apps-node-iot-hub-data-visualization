@@ -2,8 +2,14 @@
 /* global $ */
 /* global Chart */
 
+var CONNECT_STATUS_NO = 0;
+var CONNECT_STATUS_CONNECTING = 1;
+var CONNECT_STATUS_CONNECTED = 2;
+var CONNECT_STATUS_DISCONNECTED = 3;
+
+
 $(document).ready(function () {
-  window.isConnected = 0;
+  window.isConnected = CONNECT_STATUS_NO;
 
   // https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour
   // https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day
@@ -36,10 +42,12 @@ function getSensors() {
 function connectWebSocket() {
   var ws = new WebSocket("wss://" + location.host);
   
+  window.isConnected = CONNECT_STATUS_CONNECTING;
+  
   ws.onopen = function () {
     console.log("Successfully connect WebSocket");
     displayConnectionInfo("success", 'Successfully connect WebSocket');
-    window.isConnected = 1;
+    window.isConnected = CONNECT_STATUS_CONNECTED;
   };
   
   ws.onmessage = function (message) {
@@ -70,23 +78,71 @@ function displayConnectionStatus(status) {
 }
 
 function checkConnection() {
-  if ( window.isConnected == 0 ) { // no status
+  if ( window.isConnected == CONNECT_STATUS_NO ) { // no status
     // console.log('no status');
     displayConnectionStatus('nostatus');
     return;
   }
-  else if ( window.isConnected == 1 ) { // connected
+  else if ( window.isConnected == CONNECT_STATUS_CONNECTING ) { // connecting
+    // console.log('connecting');
+    displayConnectionStatus('connecting');
+    return;    
+  }
+  else if ( window.isConnected == CONNECT_STATUS_CONNECTED ) { // connected
     // console.log('still connected');
     displayConnectionStatus('connected');
     return;    
   }
-  else if ( window.isConnected == 2 ) { // disconnected
+  else if ( window.isConnected == CONNECT_STATUS_DISCONNECTED ) { // disconnected
+    window.isConnected = CONNECT_STATUS_CONNECTING;
     // console.error('disconnected');
     displayConnectionStatus('disconnected');
     displayConnectionInfo("warning", "Reconnection in 5s");
-    setTimeout(function(){ displayConnectionStatus('connecting'); connectWebSocket(); }, 5000);
+    setTimeout(function(){ displayConnectionStatus('connecting'); displayConnectionInfo("warning", "Reconnecting"); connectWebSocket(); }, 5000);
   }
 }
+
+function equalizeLegendWidth(charts) {
+  var sizes = {height: 0, width: 0, minHeight: 0, minWidth: 0, left: Number.MAX_SAFE_INTEGER};
+  
+  charts.forEach(function(chart) {
+    var legend    = chart.legend;
+    var height    = legend.height;
+    var width     = legend.width;
+    var minHeight = legend.minSize.height;
+    var minWidth  = legend.minSize.width;
+    var left      = legend.left;
+    
+    console.log(legend);
+    
+    if (sizes.height < height) {
+        sizes.height = Math.ceil(height);
+    }
+    if (sizes.minHeight < minHeight) {
+        sizes.minHeight = Math.ceil(minHeight);
+    }
+    if (sizes.width < width) {
+        sizes.width = Math.ceil(width);
+    }
+    if (sizes.minWidth < minWidth) {
+        sizes.minWidth = Math.ceil(minWidth);
+    }
+    if (sizes.left > left) {
+        sizes.left = Math.floor(left);
+    }
+  });
+
+  console.log("maxLegendHeight", sizes.height, "maxLegendWidth", sizes.width, "maxLegendLeft", sizes.left, "minHeight", sizes.minHeight, "minWidth", sizes.minWidth);
+
+  charts.forEach(function(chart) {
+    chart.legend.height         = sizes.height;
+    chart.legend.minSize.height = sizes.minHeight;
+    chart.legend.width          = sizes.width;
+    chart.legend.minSize.width  = sizes.minWidth;
+    chart.legend.left           = sizes.left;
+  });
+}
+
 
 function loadSensors(config) {
   var sensors = config.sensors;
@@ -177,20 +233,20 @@ function loadSensors(config) {
   //https://github.com/chartjs/Chart.js/issues/3666
   var ylabelwidth = 0;
   var xlabelwidth = 0;
-  var legendwidth = 0;
+  // var legendwidth = 0;
   
   $.each(measurements, function(measumentNum, measurementData){
     var measurementKey = measurementData.key;
     var measurementLabel = measurementData.label;
     
     //Get the context of the canvas element we want to select
-
-    var $chart = $("<canvas>", { id:"myChart_"+measurementKey, width:setup.graph.width, height:setup.graph.height});
+    var $chart = $("<canvas>", { id:"myChart_"+measurementKey }).width(setup.graph.width).height(setup.graph.height);
     
     $( "#graphs" ).append( $chart ); 
     
     // var optionsNoAnimation = { animation: false };
     var ctx = document.getElementById("myChart_"+measurementKey).getContext("2d");
+    
     var yaxis = measurementData.axis;
     var xaxis = { 
       display: measumentNum == measurements.length-1,
@@ -207,9 +263,20 @@ function loadSensors(config) {
       }
     };
     
-    yaxis.afterFit = function(scaleInstance) { if (ylabelwidth < scaleInstance.width) { ylabelwidth = scaleInstance.width; } else { scaleInstance.width = ylabelwidth; } };
-    xaxis.afterFit = function(scaleInstance) { if (xlabelwidth < scaleInstance.width) { xlabelwidth = scaleInstance.width; } else { scaleInstance.width = xlabelwidth; } };
-        
+    
+    var legendFontSize = Math.ceil(setup.graph.height / sensors.length); // 60 / 7 = 8.57
+    
+    var legend = {
+      display: true,
+      position: setup.graph.labelPosition,
+      labels: {
+        fontSize: legendFontSize
+      }
+    };
+    
+    yaxis.afterFit  = function(scaleInstance) { if (ylabelwidth < scaleInstance.width) { ylabelwidth = scaleInstance.width; } else { scaleInstance.width = ylabelwidth; } };
+    xaxis.afterFit  = function(scaleInstance) { if (xlabelwidth < scaleInstance.width) { xlabelwidth = scaleInstance.width; } else { scaleInstance.width = xlabelwidth; } };
+    
     measurementData.chart = new Chart(ctx, {
       "type": setup.graph.type,
       "data": {
@@ -226,11 +293,7 @@ function loadSensors(config) {
           yAxes: [yaxis],
           xAxes: [xaxis]
         },
-        legend: {
-          display: true,
-          position: setup.graph.labelPosition,
-          afterFit: function(scaleInstance) { if (legendwidth < scaleInstance.width) {legendwidth = scaleInstance.width;} else {legendwidth.width = ylabelwidth;} }
-        }
+        legend: legend
       }
     });
   });
@@ -266,7 +329,7 @@ function loadSensors(config) {
 
 
 function setSensorLastSeen(sensorInfo, isInit) {
-  console.log("setSensorLastSeen", sensorInfo, "isInit", isInit);
+  // console.log("setSensorLastSeen", sensorInfo, "isInit", isInit);
   
   var sensorId    = sensorInfo.id;
   var sensorName  = sensorInfo.name;
@@ -407,6 +470,7 @@ function processMessage(config, obj) {
         } else { // no data. set to null
           if (sensorMeasurementData[datePos -1 ]) {
             sensorMeasurementData[datePos] = sensorMeasurementData[datePos-1];
+            // sensorMeasurementData[datePos] = "";
           } else {
             sensorMeasurementData[datePos] = null;
           }
@@ -429,11 +493,14 @@ function processMessage(config, obj) {
     });
   }
 
-  for ( var i=0; i < 2; i++ ) { // run twice to aling lables
-    for ( var j=0; j < measurements.length; j++ ) {
-      measurements[j].chart.update();
-    }
+
+  var charts = [];
+  for ( var j=0; j < measurements.length; j++ ) {
+    var chart = measurements[j].chart;
+    chart.update();
+    charts.push(chart);
   }
+  equalizeLegendWidth(charts);
 }
 
 function genWebMessage(deviceId, caller, clbk) {
@@ -533,7 +600,7 @@ function onSocketError(event) {
   // $("body").html("<h1>" + "The connection was closed for reason:</h1><br/><h3>" + reason + "<h3>");
   console.error('The connection was closed for reason: ' + reason);
   displayConnectionInfo("error", "The connection was closed for reason: " + reason);
-  window.isConnected = 2;
+  window.isConnected = CONNECT_STATUS_DISCONNECTED;
 };
 
 function hexToRGB(hex) {
