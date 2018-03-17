@@ -3,41 +3,83 @@
 /* global Chart */
 
 $(document).ready(function () {
-  $.getJSON("sensors.json", function(json) {
-    console.log(json); // this will show the info it in firebug console
+  window.isConnected = 0;
+
+  // https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour
+  // https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day
+
+  $.getJSON("sensors.json", function(config) {
+    console.log(config); // this will show the info it in firebug console
     
-    window.data = json;
+    window.data = config;
     
-    loadSensors(json);
+    loadSensors(config);
     
-    // https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour
-    // https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day
-    
-    var ws = new WebSocket("wss://" + location.host);
-    
-    ws.onclose = onSocketError; 
-    
-    ws.onopen = function () {
-      console.log("Successfully connect WebSocket");
-    };
-    
-    ws.onmessage = function (message) {
-      console.log("receive message" + message.data);
-      
-      try {
-        var obj = JSON.parse(message.data);
-        processMessage(json, obj);
-        
-      } catch (err) {
-        console.error(err);
-      }
-    };
+    connectWebSocket();
   })
   .fail(function( jqxhr, textStatus, error ) {
     var err = textStatus + ", " + error;
-    console.error( "Request Failed: " + err );
+    console.warning( "Failed to get configuration file: " + err );
+    displayConnectionInfo("error", 'Failed to get configuration file: ' + err);
   });
+  
+  setInterval(function() { checkConnection(); }, 1000);
 });
+
+function connectWebSocket() {
+  var ws = new WebSocket("wss://" + location.host);
+  
+  ws.onopen = function () {
+    console.log("Successfully connect WebSocket");
+    displayConnectionInfo("success", 'Successfully connect WebSocket');
+    window.isConnected = 1;
+  };
+  
+  ws.onmessage = function (message) {
+    console.log("received message" + message.data);
+    displayConnectionInfo("good", 'received message');
+    
+    try {
+      var obj = JSON.parse(message.data);
+      processMessage(window.data, obj);
+      displayConnectionInfo("good", 'message processed');
+      
+    } catch (err) {
+      console.warning(err);
+      displayConnectionInfo("warning", 'error processing message: '+ err);
+    }
+  };
+
+  ws.onclose = onSocketError; 
+}
+
+function displayConnectionInfo(level, message) {
+  $("#connection").attr('class', level);
+  $("#connection").html(message);
+}
+
+function displayConnectionStatus(status) {
+  $("#connectionStatus").attr('class', status);
+}
+
+function checkConnection() {
+  if ( window.isConnected == 0 ) { // no status
+    // console.log('no status');
+    displayConnectionStatus('nostatus');
+    return;
+  }
+  else if ( window.isConnected == 1 ) { // connected
+    // console.log('still connected');
+    displayConnectionStatus('connected');
+    return;    
+  }
+  else if ( window.isConnected == 2 ) { // disconnected
+    // console.error('disconnected');
+    displayConnectionStatus('disconnected');
+    displayConnectionInfo("warning", "Reconnection in 5s");
+    setTimeout(function(){ displayConnectionStatus('connecting'); connectWebSocket(); }, 5000);
+  }
+}
 
 function loadSensors(config) {
   var sensors = config.sensors;
@@ -186,7 +228,7 @@ function loadSensors(config) {
   });
 
 
-  $('#stats').html("<small>Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.</small>");
+  $('#stats').html("Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.");
   
   
   $.each(sensors, function(sensorNum, sensorInfo) {
@@ -201,7 +243,7 @@ function loadSensors(config) {
           });
         };
     
-        $("#weather").append( $("<small>", {id: "weather_"+webSensorId}) );
+        $("#weather").append( $("<span>", {id: "weather_"+webSensorId}) );
         $("#weather").append( $("<br>") );
         
         sensorInfo.sender();
@@ -227,15 +269,17 @@ function processMessage(config, obj) {
 
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
     console.warn("misformed data");
-    return;
+    throw "misformed data";
   }
+
+  //sensorStatus
 
   for ( var measumentNum = 0; measumentNum < measurements.length; measumentNum++ ) {
     var measurementData = measurements[measumentNum];
     var measurementKey = measurementData.key;
     if (!(measurementKey in obj)) {
       console.warn("misformed data. missing", measurementKey, "key");
-      return;
+      throw "misformed data. missing" + measurementKey + "key";
     }
   }
   
@@ -256,7 +300,7 @@ function processMessage(config, obj) {
   
   if ( !(sensorId in sensorIds) ) {
     console.warn("unknown sensor", sensorId, sensorIds);
-    return; 
+    throw "unknown sensor: " + sensorId;
   }
 
   var input = {};
@@ -403,7 +447,9 @@ function parseTimeStamp(ts) {
 function onSocketError(event) {
   // https://stackoverflow.com/questions/18803971/websocket-onerror-how-to-read-error-description
   var reason;
-  alert("websocket closed", event.code);
+
+  // alert("websocket closed", event.code);
+
   // See http://tools.ietf.org/html/rfc6455#section-7.4.1
   if (event.code == 1000)
       reason = "Normal closure, meaning that the purpose for which the connection was established has been fulfilled.";
@@ -434,7 +480,10 @@ function onSocketError(event) {
   else
       reason = "Unknown reason";
 
-  $("body").html("<h1>" + "The connection was closed for reason:</h1><br/><h3>" + reason + "<h3>");
+  // $("body").html("<h1>" + "The connection was closed for reason:</h1><br/><h3>" + reason + "<h3>");
+  console.error('The connection was closed for reason: ' + reason);
+  displayConnectionInfo("error", "The connection was closed for reason: " + reason);
+  window.isConnected = 2;
 };
 
 function hexToRGB(hex) {
