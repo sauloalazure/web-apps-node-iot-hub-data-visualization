@@ -28,6 +28,9 @@
             }
         }
     },
+    "websocket": {
+        "maxWaitTime": 120000
+    },
     "sensors": [
         {
             "id": "OpenWeather",
@@ -125,4 +128,3 @@
         }
     ]
 }
-

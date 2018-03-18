@@ -4,8 +4,10 @@
 
 var CONNECT_STATUS_NO           = 0;
 var CONNECT_STATUS_CONNECTING   = 1;
-var CONNECT_STATUS_CONNECTED    = 2;
-var CONNECT_STATUS_DISCONNECTED = 3;
+var CONNECT_STATUS_RECONNECTING = 2;
+var CONNECT_STATUS_CONNECTED    = 3;
+var CONNECT_STATUS_UNRESPONSIVE = 4;
+var CONNECT_STATUS_DISCONNECTED = 5;
 
 
 $(document).ready(function () {
@@ -19,7 +21,7 @@ function getSensors() {
     
     window.data = config;
     
-    loadSensors(config, function(cfg){ loadHistory(cfg, function(c) { startWebSensors(config, function(g) { startWebSocket(g, function(){} ); }); }); });
+    loadSensors(config, function(cfg){ loadHistory(cfg, function(c) { startWebSensors(c, function(g) { startWebSocket(g, function(){} ); }); }); });
   })
   .fail(function( jqxhr, textStatus, error ) {
     var err = textStatus + ", " + error;
@@ -299,7 +301,9 @@ function startWebSensors(config, clbk) {
 }
 
 function startWebSocket(config, clbk) {
-  window.isConnected = CONNECT_STATUS_NO;
+  config.websocket = 'websocket' in config ? config.websocket : {};
+  
+  config.websocket.isConnected = CONNECT_STATUS_NO;
 
   connectWebSocket(config);
 
@@ -309,23 +313,26 @@ function startWebSocket(config, clbk) {
 }
 
 function connectWebSocket(config) {
-  var ws = new WebSocket("wss://" + location.host);
+  config.websocket.socket = new WebSocket("wss://" + location.host);
   
-  window.isConnected = CONNECT_STATUS_CONNECTING;
+  config.websocket.isConnected = CONNECT_STATUS_CONNECTING;
   
-  ws.onopen = function () {
+  config.websocket.socket.onopen = function () {
     console.log("Successfully connect WebSocket");
     displayConnectionInfo("success", 'Successfully connect WebSocket');
-    window.isConnected = CONNECT_STATUS_CONNECTED;
+    config.websocket.isConnected = CONNECT_STATUS_CONNECTED;
+    config.websocket.connectionTime = new Date().getTime();
+    delete config.websocket.lastWebSocketMessage;
   };
   
-  ws.onmessage = function (message) {
+  config.websocket.socket.onmessage = function (message) {
     console.log("received message" + message.data);
     displayConnectionInfo("good", 'received message');
     
     try {
       var obj = JSON.parse(message.data);
       processMessage(config, obj);
+      config.websocket.lastWebSocketMessage = new Date().getTime();
       displayConnectionInfo("good", 'message processed');
       
     } catch (err) {
@@ -334,35 +341,80 @@ function connectWebSocket(config) {
     }
   };
 
-  ws.onclose = onSocketError;
+  config.websocket.socket.onclose = function(ev) { onSocketError(ev, config); };
 }
 
 function checkConnection(config) {
-  if ( window.isConnected == CONNECT_STATUS_NO ) { // no status
+  if ( config.websocket.isConnected == CONNECT_STATUS_NO ) { // no status
     // console.log('no status');
     displayConnectionStatus('nostatus');
     return;
   }
-  else if ( window.isConnected == CONNECT_STATUS_CONNECTING ) { // connecting
+  else if ( config.websocket.isConnected == CONNECT_STATUS_CONNECTING ) { // connecting
     // console.log('connecting');
     displayConnectionStatus('connecting');
     return;    
   }
-  else if ( window.isConnected == CONNECT_STATUS_CONNECTED ) { // connected
-    // console.log('still connected');
-    displayConnectionStatus('connected');
+  else if ( config.websocket.isConnected == CONNECT_STATUS_RECONNECTING ) { // reconnecting
+    // console.log('connecting');
+    displayConnectionStatus('reconnecting');
     return;    
   }
-  else if ( window.isConnected == CONNECT_STATUS_DISCONNECTED ) { // disconnected
-    window.isConnected = CONNECT_STATUS_CONNECTING;
+  else if ( config.websocket.isConnected == CONNECT_STATUS_CONNECTED ) { // connected
+    // console.log('still connected');
+    displayConnectionStatus('connected');
+    
+    var connectionTime = config.websocket.connectionTime;
+    var now = new Date(Date.now()).getTime();
+    var diffDate = now - connectionTime;
+    if ( "lastWebSocketMessage" in config.websocket ) { // has received messages
+      var lastWebSocketMessage = config.websocket.lastWebSocketMessage;
+      diffDate = now - lastWebSocketMessage;
+    } else { // no messages received
+    }
+
+    console.log("connectionTime", connectionTime, "now", now, "lastWebSocketMessage", config.websocket.lastWebSocketMessage, "diffDate", diffDate, "maxWaitTime", config.websocket.maxWaitTime);
+
+    if ( diffDate > config.websocket.maxWaitTime ) { // set as unresposive
+      config.websocket.isConnected == CONNECT_STATUS_UNRESPONSIVE;
+    } else { // ok
+    }
+    
+    return;    
+  }
+  else if ( config.websocket.isConnected == CONNECT_STATUS_UNRESPONSIVE ) { // unresponsive
+    config.websocket.isConnected = CONNECT_STATUS_RECONNECTING;
+    // console.error('disconnected');
+    displayConnectionStatus('unresponsive');
+    displayConnectionInfo("warning", "Unresponsive. Disconnecting in 5s");
+    setTimeout( function(){ 
+      displayConnectionStatus('disconnecting'); 
+      displayConnectionInfo("warning", "Unresponsive. Disconnecting");
+      try {
+        config.websocket.socket.close();
+      } catch (e) {}
+      delete config.websocket.socket;
+      config.websocket.isConnected = CONNECT_STATUS_DISCONNECTED;
+    }, 5000);
+  }
+  else if ( config.websocket.isConnected == CONNECT_STATUS_DISCONNECTED ) { // disconnected
+    config.websocket.isConnected = CONNECT_STATUS_CONNECTING;
     // console.error('disconnected');
     displayConnectionStatus('disconnected');
     displayConnectionInfo("warning", "Reconnection in 5s");
-    setTimeout(function(){ displayConnectionStatus('connecting'); displayConnectionInfo("warning", "Reconnecting"); connectWebSocket(config); }, 5000);
+    setTimeout( function(){ 
+      displayConnectionStatus('connecting'); 
+      displayConnectionInfo("warning", "Reconnecting");
+      try {
+        config.websocket.socket.close();
+      } catch (e) {}
+      delete config.websocket.socket;
+      connectWebSocket(config);
+    }, 5000);
   }
 }
 
-function onSocketError(event) {
+function onSocketError(event, config) {
   // https://stackoverflow.com/questions/18803971/websocket-onerror-how-to-read-error-description
   var reason;
 
@@ -401,7 +453,7 @@ function onSocketError(event) {
   // $("body").html("<h1>" + "The connection was closed for reason:</h1><br/><h3>" + reason + "<h3>");
   console.error('The connection was closed for reason: ' + reason);
   displayConnectionInfo("error", "The connection was closed for reason: " + reason);
-  window.isConnected = CONNECT_STATUS_DISCONNECTED;
+  config.websocket.isConnected = CONNECT_STATUS_DISCONNECTED;
 };
 
 function displayConnectionInfo(level, message) {
