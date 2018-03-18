@@ -209,19 +209,19 @@ function loadHistory(config, clbk) {
         if ( setup.history.display in setup.history.endpoints) {
           var endpoint = setup.history.endpoints[setup.history.display];
           console.log("endpoint", endpoint);
-          success = true; 
+          success = false; 
           
+          success = true; 
           $.getJSON(endpoint, function(history) {
-            console.log("history", history); // this will show the info in firebug console
-            
-            // window.data = config;
-            
-            // loadSensors(config, function(cfg){ loadHistory(cfg, function(c) { startWebSensors(config, function(g) { startWebSocket(g, function(){} ); }); }); });
+            console.log("history", history);
+            config.history = history;
+            addHistory(config, clbk);
           })
           .fail(function( jqxhr, textStatus, error ) {
             var err = textStatus + ", " + error;
             console.warn( "Failed to get history data: " + err );
             displayConnectionInfo("error", 'Failed to get history data: ' + err);
+            clbk(config);
           });
         }
       }
@@ -234,8 +234,37 @@ function loadHistory(config, clbk) {
   }
 }
 
-
+function addHistory(config, clbk) {
+  // {
+  //   "period":"hour",
+  //   "data": [
+  //     {"published_at":"2018-03-17T23:13:10.606Z","_ts":1521328405},
+  //     {"published_at":"2018-03-17T22:13:55.64Z","_ts":1521324836}
+  //   ]
+  // }
+  var success = false;
+  if ( "history" in config ) {
+    if ( "period" in config.history ) {
+      var period = config.history.period;
+      console.log('adding period: ', period);
+      if ( "data" in config.history ) {
+        success = true;
+        var data = config.history.data;
+        for ( var d=0; d < data.length; d++ ) {
+          var reg = data[d];
+          console.log(reg);
+          processMessage(config, reg);
+        }
+      }
+    }
+  }
   
+  if ( ! success ) {
+    console.log("failed processing history. proceeding");
+  }
+  clbk(config);
+}
+
 function startWebSensors(config, clbk) {  
   var sensors = config.sensors;
 
