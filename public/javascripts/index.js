@@ -133,7 +133,7 @@ function loadSensors(config, clbk) {
     var ctx = document.getElementById("myChart_"+measurementKey).getContext("2d");
     
     var yaxis = measurementData.axis;
-    var xaxis = { 
+    var xaxis = {
       display: measumentNum == measurements.length-1,
       type: 'time',
       time: {
@@ -169,6 +169,7 @@ function loadSensors(config, clbk) {
         datasets: measurementData.cfg
       },
       "options": {
+        spanGaps: true,
         title: {
           display: setup.graph.displayTitle,
           text: measurementLabel,
@@ -513,12 +514,7 @@ function processMessage(config, obj) {
       } else { //wrong sensor
         if ( sensorMeasurementData[datePos] ) { // already has data. skip
         } else { // no data. set to null
-          if (sensorMeasurementData[datePos -1 ]) {
-            sensorMeasurementData[datePos] = sensorMeasurementData[datePos-1];
-            // sensorMeasurementData[datePos] = "";
-          } else {
-            sensorMeasurementData[datePos] = null;
-          }
+          sensorMeasurementData[datePos] = null;
         }
       }
     });
@@ -580,7 +576,7 @@ function equalizeLegendWidth(charts) {
     }
   });
 
-  console.log("maxLegendHeight", sizes.height, "maxLegendWidth", sizes.width, "maxLegendLeft", sizes.left, "minHeight", sizes.minHeight, "minWidth", sizes.minWidth);
+  //console.log("maxLegendHeight", sizes.height, "maxLegendWidth", sizes.width, "maxLegendLeft", sizes.left, "minHeight", sizes.minHeight, "minWidth", sizes.minWidth);
 
   charts.forEach(function(chart) {
     chart.legend.height         = sizes.height;
