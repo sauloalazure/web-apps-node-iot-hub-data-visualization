@@ -2,149 +2,34 @@
 /* global $ */
 /* global Chart */
 
-var CONNECT_STATUS_NO = 0;
-var CONNECT_STATUS_CONNECTING = 1;
-var CONNECT_STATUS_CONNECTED = 2;
+var CONNECT_STATUS_NO           = 0;
+var CONNECT_STATUS_CONNECTING   = 1;
+var CONNECT_STATUS_CONNECTED    = 2;
 var CONNECT_STATUS_DISCONNECTED = 3;
 
 
 $(document).ready(function () {
-  window.isConnected = CONNECT_STATUS_NO;
-
-  // https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour
-  // https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day
-
   getSensors();
-  
-  setInterval(function() { checkConnection(); }, 1000);
 });
 
 
 function getSensors() {
   $.getJSON("sensors.json", function(config) {
-    console.log(config); // this will show the info it in firebug console
+    console.log(config); // this will show the info in firebug console
     
     window.data = config;
     
-    loadSensors(config);
-    
-    connectWebSocket();
-
+    loadSensors(config, function(cfg){ loadHistory(cfg, function(c) { startWebSensors(config, function(g) { startWebSocket(g, function(){} ); }); }); });
   })
   .fail(function( jqxhr, textStatus, error ) {
     var err = textStatus + ", " + error;
     console.warn( "Failed to get configuration file: " + err );
     displayConnectionInfo("error", 'Failed to get configuration file: ' + err);
-
-  });
-}
-
-function connectWebSocket() {
-  var ws = new WebSocket("wss://" + location.host);
-  
-  window.isConnected = CONNECT_STATUS_CONNECTING;
-  
-  ws.onopen = function () {
-    console.log("Successfully connect WebSocket");
-    displayConnectionInfo("success", 'Successfully connect WebSocket');
-    window.isConnected = CONNECT_STATUS_CONNECTED;
-  };
-  
-  ws.onmessage = function (message) {
-    console.log("received message" + message.data);
-    displayConnectionInfo("good", 'received message');
-    
-    try {
-      var obj = JSON.parse(message.data);
-      processMessage(window.data, obj);
-      displayConnectionInfo("good", 'message processed');
-      
-    } catch (err) {
-      console.warn(err);
-      displayConnectionInfo("warning", 'error processing message: '+ err);
-    }
-  };
-
-  ws.onclose = onSocketError; 
-}
-
-function displayConnectionInfo(level, message) {
-  $("#connection").attr('class', level);
-  $("#connection").html(message);
-}
-
-function displayConnectionStatus(status) {
-  $("#connectionStatus").attr('class', status);
-}
-
-function checkConnection() {
-  if ( window.isConnected == CONNECT_STATUS_NO ) { // no status
-    // console.log('no status');
-    displayConnectionStatus('nostatus');
-    return;
-  }
-  else if ( window.isConnected == CONNECT_STATUS_CONNECTING ) { // connecting
-    // console.log('connecting');
-    displayConnectionStatus('connecting');
-    return;    
-  }
-  else if ( window.isConnected == CONNECT_STATUS_CONNECTED ) { // connected
-    // console.log('still connected');
-    displayConnectionStatus('connected');
-    return;    
-  }
-  else if ( window.isConnected == CONNECT_STATUS_DISCONNECTED ) { // disconnected
-    window.isConnected = CONNECT_STATUS_CONNECTING;
-    // console.error('disconnected');
-    displayConnectionStatus('disconnected');
-    displayConnectionInfo("warning", "Reconnection in 5s");
-    setTimeout(function(){ displayConnectionStatus('connecting'); displayConnectionInfo("warning", "Reconnecting"); connectWebSocket(); }, 5000);
-  }
-}
-
-function equalizeLegendWidth(charts) {
-  var sizes = {height: 0, width: 0, minHeight: 0, minWidth: 0, left: Number.MAX_SAFE_INTEGER};
-  
-  charts.forEach(function(chart) {
-    var legend    = chart.legend;
-    var height    = legend.height;
-    var width     = legend.width;
-    var minHeight = legend.minSize.height;
-    var minWidth  = legend.minSize.width;
-    var left      = legend.left;
-    
-    console.log(legend);
-    
-    if (sizes.height < height) {
-        sizes.height = Math.ceil(height);
-    }
-    if (sizes.minHeight < minHeight) {
-        sizes.minHeight = Math.ceil(minHeight);
-    }
-    if (sizes.width < width) {
-        sizes.width = Math.ceil(width);
-    }
-    if (sizes.minWidth < minWidth) {
-        sizes.minWidth = Math.ceil(minWidth);
-    }
-    if (sizes.left > left) {
-        sizes.left = Math.floor(left);
-    }
-  });
-
-  console.log("maxLegendHeight", sizes.height, "maxLegendWidth", sizes.width, "maxLegendLeft", sizes.left, "minHeight", sizes.minHeight, "minWidth", sizes.minWidth);
-
-  charts.forEach(function(chart) {
-    chart.legend.height         = sizes.height;
-    chart.legend.minSize.height = sizes.minHeight;
-    chart.legend.width          = sizes.width;
-    chart.legend.minSize.width  = sizes.minWidth;
-    chart.legend.left           = sizes.left;
   });
 }
 
 
-function loadSensors(config) {
+function loadSensors(config, clbk) {
   var sensors = config.sensors;
   var measurements = config.measurements;
   var setup = config.setup;
@@ -300,8 +185,60 @@ function loadSensors(config) {
 
 
   $('#stats').html("Showing <span id='numDatapoints'>0</span> datapoints out of <span id='maxDatapoints'>0</span>.<br/>First datapoint added at <span id='firstDatapoint'>Unknown</span>.<br/>Last datapoint added at <span id='lastDatapoint'>Unknown</span>.");
+
+  clbk(config);
+}
+
+
+function loadHistory(config, clbk) {
+  var setup = config.setup;
+  // "history": {
+  //     "display": "lastHour",
+  //     "endpoints": { 
+  //         "lastHour": "https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour",
+  //         "lastDay": "https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day"
+  //     }
+  // }
   
+  var success = false;
+  if ( "history" in setup ) {
+    console.log("history enabled");
+    if ( "display" in setup.history ) {
+      console.log("showing history: ", setup.history.display);
+      if ( "endpoints" in setup.history ) {
+        if ( setup.history.display in setup.history.endpoints) {
+          var endpoint = setup.history.endpoints[setup.history.display];
+          console.log("endpoint", endpoint);
+          success = true; 
+          
+          $.getJSON(endpoint, function(history) {
+            console.log("history", history); // this will show the info in firebug console
+            
+            // window.data = config;
+            
+            // loadSensors(config, function(cfg){ loadHistory(cfg, function(c) { startWebSensors(config, function(g) { startWebSocket(g, function(){} ); }); }); });
+          })
+          .fail(function( jqxhr, textStatus, error ) {
+            var err = textStatus + ", " + error;
+            console.warn( "Failed to get history data: " + err );
+            displayConnectionInfo("error", 'Failed to get history data: ' + err);
+          });
+        }
+      }
+    }
+  }
+
+  if ( ! success ) {
+    console.log("history failed. proceeding");
+    clbk(config);
+  }
+}
+
+
   
+function startWebSensors(config, clbk) {  
+  var sensors = config.sensors;
+
   $.each(sensors, function(sensorNum, sensorInfo) {
     if ( sensorInfo.type == "web" ) {
       if ( "caller" in sensorInfo ) { 
@@ -323,48 +260,123 @@ function loadSensors(config) {
       }
     }
   });
+  
+  clbk(config);
 }
 
+function startWebSocket(config, clbk) {
+  window.isConnected = CONNECT_STATUS_NO;
 
+  connectWebSocket(config);
 
+  setInterval(function() { checkConnection(config); }, 1000);
 
-function setSensorLastSeen(sensorInfo, isInit) {
-  // console.log("setSensorLastSeen", sensorInfo, "isInit", isInit);
+  clbk(config);
+}
+
+function connectWebSocket(config) {
+  var ws = new WebSocket("wss://" + location.host);
   
-  var sensorId    = sensorInfo.id;
-  var sensorName  = sensorInfo.name;
-  var fieldId     = "#sensorStatus_"+sensorId;
-  var sensorField = $(fieldId);
+  window.isConnected = CONNECT_STATUS_CONNECTING;
   
-  if (!( sensorField.length )) {
-    $("#sensorStatus").append($("<div>", { id: "sensorStatus_"+sensorId }));
-    sensorField = $(fieldId);
-  }
+  ws.onopen = function () {
+    console.log("Successfully connect WebSocket");
+    displayConnectionInfo("success", 'Successfully connect WebSocket');
+    window.isConnected = CONNECT_STATUS_CONNECTED;
+  };
   
-  var lastSeen = null;
-  var seenCount = 0;
-  if ( isInit ) {
-    sensorInfo.lastSeen = null;
-    sensorInfo.seenCount = 0;
-    lastSeen = "never";
-  } else {
-    lastSeen = new Date();
-    seenCount = sensorInfo.seenCount + 1;
-    // if ( sensorInfo.lastSeen ) { // was seen before
-    //   var diffDate = new Date((Date.now()) - sensorInfo.lastSeen);
-    //   console.log("diffDate", diffDate);
-    //   lastSeen = "Days: " + (diffDate.getDate() - 1) + ", Hours: " + diffDate.getHours() + ", Minutes: " + diffDate.getMinutes() + ", Seconds: " + diffDate.getSeconds() + " ago";
-    // } else { // never seen before
-    //   if ( ! isInit ) {
-    //     lastSeen = "Days: " + (diffDate.getDate() - 1) + ", Hours: " + diffDate.getHours() + ", Minutes: " + diffDate.getMinutes() + ", Seconds: " + diffDate.getSeconds() + " ago";
-    //   }
-    // }
-
-    sensorInfo.lastSeen = Date.now();
-    sensorInfo.seenCount += 1;
-  }
+  ws.onmessage = function (message) {
+    console.log("received message" + message.data);
+    displayConnectionInfo("good", 'received message');
     
-  $(fieldId).html("last message received from " + sensorName + ": " + lastSeen + ". " + seenCount + " message" + (seenCount != 1 ? "s" : "") + " received so far");
+    try {
+      var obj = JSON.parse(message.data);
+      processMessage(config, obj);
+      displayConnectionInfo("good", 'message processed');
+      
+    } catch (err) {
+      console.warn(err);
+      displayConnectionInfo("warning", 'error processing message: '+ err);
+    }
+  };
+
+  ws.onclose = onSocketError;
+}
+
+function checkConnection(config) {
+  if ( window.isConnected == CONNECT_STATUS_NO ) { // no status
+    // console.log('no status');
+    displayConnectionStatus('nostatus');
+    return;
+  }
+  else if ( window.isConnected == CONNECT_STATUS_CONNECTING ) { // connecting
+    // console.log('connecting');
+    displayConnectionStatus('connecting');
+    return;    
+  }
+  else if ( window.isConnected == CONNECT_STATUS_CONNECTED ) { // connected
+    // console.log('still connected');
+    displayConnectionStatus('connected');
+    return;    
+  }
+  else if ( window.isConnected == CONNECT_STATUS_DISCONNECTED ) { // disconnected
+    window.isConnected = CONNECT_STATUS_CONNECTING;
+    // console.error('disconnected');
+    displayConnectionStatus('disconnected');
+    displayConnectionInfo("warning", "Reconnection in 5s");
+    setTimeout(function(){ displayConnectionStatus('connecting'); displayConnectionInfo("warning", "Reconnecting"); connectWebSocket(config); }, 5000);
+  }
+}
+
+function onSocketError(event) {
+  // https://stackoverflow.com/questions/18803971/websocket-onerror-how-to-read-error-description
+  var reason;
+
+  // alert("websocket closed", event.code);
+
+  // See http://tools.ietf.org/html/rfc6455#section-7.4.1
+  if (event.code == 1000)
+      reason = "Normal closure, meaning that the purpose for which the connection was established has been fulfilled.";
+  else if(event.code == 1001)
+      reason = "An endpoint is \"going away\", such as a server going down or a browser having navigated away from a page.";
+  else if(event.code == 1002)
+      reason = "An endpoint is terminating the connection due to a protocol error";
+  else if(event.code == 1003)
+      reason = "An endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an endpoint that understands only text data MAY send this if it receives a binary message).";
+  else if(event.code == 1004)
+      reason = "Reserved. The specific meaning might be defined in the future.";
+  else if(event.code == 1005)
+      reason = "No status code was actually present.";
+  else if(event.code == 1006)
+     reason = "The connection was closed abnormally, e.g., without sending or receiving a Close control frame";
+  else if(event.code == 1007)
+      reason = "An endpoint is terminating the connection because it has received data within a message that was not consistent with the type of the message (e.g., non-UTF-8 [http://tools.ietf.org/html/rfc3629] data within a text message).";
+  else if(event.code == 1008)
+      reason = "An endpoint is terminating the connection because it has received a message that \"violates its policy\". This reason is given either if there is no other sutible reason, or if there is a need to hide specific details about the policy.";
+  else if(event.code == 1009)
+     reason = "An endpoint is terminating the connection because it has received a message that is too big for it to process.";
+  else if(event.code == 1010) // Note that this status code is not used by the server, because it can fail the WebSocket handshake instead.
+      reason = "An endpoint (client) is terminating the connection because it has expected the server to negotiate one or more extension, but the server didn't return them in the response message of the WebSocket handshake. <br /> Specifically, the extensions that are needed are: " + event.reason;
+  else if(event.code == 1011)
+      reason = "A server is terminating the connection because it encountered an unexpected condition that prevented it from fulfilling the request.";
+  else if(event.code == 1015)
+      reason = "The connection was closed due to a failure to perform a TLS handshake (e.g., the server certificate can't be verified).";
+  else
+      reason = "Unknown reason";
+
+  // $("body").html("<h1>" + "The connection was closed for reason:</h1><br/><h3>" + reason + "<h3>");
+  console.error('The connection was closed for reason: ' + reason);
+  displayConnectionInfo("error", "The connection was closed for reason: " + reason);
+  window.isConnected = CONNECT_STATUS_DISCONNECTED;
+};
+
+function displayConnectionInfo(level, message) {
+  $("#connection").attr('class', level);
+  $("#connection").html(message);
+}
+
+function displayConnectionStatus(status) {
+  $("#connectionStatus").attr('class', status);
 }
 
 
@@ -503,6 +515,49 @@ function processMessage(config, obj) {
   equalizeLegendWidth(charts);
 }
 
+function equalizeLegendWidth(charts) {
+  // https://codepen.io/anon/pen/LOBPMV
+  // https://github.com/chartjs/Chart.js/issues/4982
+  var sizes = {height: 0, width: 0, minHeight: 0, minWidth: 0, left: Number.MAX_SAFE_INTEGER};
+  
+  charts.forEach(function(chart) {
+    var legend    = chart.legend;
+    var height    = legend.height;
+    var width     = legend.width;
+    var minHeight = legend.minSize.height;
+    var minWidth  = legend.minSize.width;
+    var left      = legend.left;
+    
+    // console.log(legend);
+    
+    if (sizes.height < height) {
+        sizes.height = Math.ceil(height);
+    }
+    if (sizes.minHeight < minHeight) {
+        sizes.minHeight = Math.ceil(minHeight);
+    }
+    if (sizes.width < width) {
+        sizes.width = Math.ceil(width);
+    }
+    if (sizes.minWidth < minWidth) {
+        sizes.minWidth = Math.ceil(minWidth);
+    }
+    if (sizes.left > left) {
+        sizes.left = Math.floor(left);
+    }
+  });
+
+  console.log("maxLegendHeight", sizes.height, "maxLegendWidth", sizes.width, "maxLegendLeft", sizes.left, "minHeight", sizes.minHeight, "minWidth", sizes.minWidth);
+
+  charts.forEach(function(chart) {
+    chart.legend.height         = sizes.height;
+    chart.legend.minSize.height = sizes.minHeight;
+    chart.legend.width          = sizes.width;
+    chart.legend.minSize.width  = sizes.minWidth;
+    chart.legend.left           = sizes.left;
+  });
+}
+
 function genWebMessage(deviceId, caller, clbk) {
   caller(function(d) {
     
@@ -518,6 +573,46 @@ function genWebMessage(deviceId, caller, clbk) {
       pres: d.pressurePa
     });
   });
+}
+
+
+function setSensorLastSeen(sensorInfo, isInit) {
+  // console.log("setSensorLastSeen", sensorInfo, "isInit", isInit);
+  
+  var sensorId    = sensorInfo.id;
+  var sensorName  = sensorInfo.name;
+  var fieldId     = "#sensorStatus_"+sensorId;
+  var sensorField = $(fieldId);
+  
+  if (!( sensorField.length )) {
+    $("#sensorStatus").append($("<div>", { id: "sensorStatus_"+sensorId }));
+    sensorField = $(fieldId);
+  }
+  
+  var lastSeen = null;
+  var seenCount = 0;
+  if ( isInit ) {
+    sensorInfo.lastSeen = null;
+    sensorInfo.seenCount = 0;
+    lastSeen = "never";
+  } else {
+    lastSeen = new Date();
+    seenCount = sensorInfo.seenCount + 1;
+    // if ( sensorInfo.lastSeen ) { // was seen before
+    //   var diffDate = new Date((Date.now()) - sensorInfo.lastSeen);
+    //   console.log("diffDate", diffDate);
+    //   lastSeen = "Days: " + (diffDate.getDate() - 1) + ", Hours: " + diffDate.getHours() + ", Minutes: " + diffDate.getMinutes() + ", Seconds: " + diffDate.getSeconds() + " ago";
+    // } else { // never seen before
+    //   if ( ! isInit ) {
+    //     lastSeen = "Days: " + (diffDate.getDate() - 1) + ", Hours: " + diffDate.getHours() + ", Minutes: " + diffDate.getMinutes() + ", Seconds: " + diffDate.getSeconds() + " ago";
+    //   }
+    // }
+
+    sensorInfo.lastSeen = Date.now();
+    sensorInfo.seenCount += 1;
+  }
+    
+  $(fieldId).html("last message received from " + sensorName + ": " + lastSeen + ". " + seenCount + " message" + (seenCount != 1 ? "s" : "") + " received so far");
 }
 
 function genTimeStamp(){
@@ -561,47 +656,6 @@ function parseTimeStamp(ts) {
   return nd;
 }
 
-function onSocketError(event) {
-  // https://stackoverflow.com/questions/18803971/websocket-onerror-how-to-read-error-description
-  var reason;
-
-  // alert("websocket closed", event.code);
-
-  // See http://tools.ietf.org/html/rfc6455#section-7.4.1
-  if (event.code == 1000)
-      reason = "Normal closure, meaning that the purpose for which the connection was established has been fulfilled.";
-  else if(event.code == 1001)
-      reason = "An endpoint is \"going away\", such as a server going down or a browser having navigated away from a page.";
-  else if(event.code == 1002)
-      reason = "An endpoint is terminating the connection due to a protocol error";
-  else if(event.code == 1003)
-      reason = "An endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an endpoint that understands only text data MAY send this if it receives a binary message).";
-  else if(event.code == 1004)
-      reason = "Reserved. The specific meaning might be defined in the future.";
-  else if(event.code == 1005)
-      reason = "No status code was actually present.";
-  else if(event.code == 1006)
-     reason = "The connection was closed abnormally, e.g., without sending or receiving a Close control frame";
-  else if(event.code == 1007)
-      reason = "An endpoint is terminating the connection because it has received data within a message that was not consistent with the type of the message (e.g., non-UTF-8 [http://tools.ietf.org/html/rfc3629] data within a text message).";
-  else if(event.code == 1008)
-      reason = "An endpoint is terminating the connection because it has received a message that \"violates its policy\". This reason is given either if there is no other sutible reason, or if there is a need to hide specific details about the policy.";
-  else if(event.code == 1009)
-     reason = "An endpoint is terminating the connection because it has received a message that is too big for it to process.";
-  else if(event.code == 1010) // Note that this status code is not used by the server, because it can fail the WebSocket handshake instead.
-      reason = "An endpoint (client) is terminating the connection because it has expected the server to negotiate one or more extension, but the server didn't return them in the response message of the WebSocket handshake. <br /> Specifically, the extensions that are needed are: " + event.reason;
-  else if(event.code == 1011)
-      reason = "A server is terminating the connection because it encountered an unexpected condition that prevented it from fulfilling the request.";
-  else if(event.code == 1015)
-      reason = "The connection was closed due to a failure to perform a TLS handshake (e.g., the server certificate can't be verified).";
-  else
-      reason = "Unknown reason";
-
-  // $("body").html("<h1>" + "The connection was closed for reason:</h1><br/><h3>" + reason + "<h3>");
-  console.error('The connection was closed for reason: ' + reason);
-  displayConnectionInfo("error", "The connection was closed for reason: " + reason);
-  window.isConnected = CONNECT_STATUS_DISCONNECTED;
-};
 
 function hexToRGB(hex) {
   //http://www.javascripter.net/faq/hextorgb.htm

@@ -19,6 +19,13 @@
                "className": "WunderGround",
                "apiKey": "4e8efbd62eb9ae60"
             }
+        },
+        "history": {
+            "display": "lastHour",
+            "endpoints": { 
+                "lastHour": "https://hometempfunctionapp.azurewebsites.net/api/oneHourAgo?period=hour",
+                "lastDay": "https://hometempfunctionapp.azurewebsites.net/api/oneDayAgo?period=day"
+            }
         }
     },
     "sensors": [

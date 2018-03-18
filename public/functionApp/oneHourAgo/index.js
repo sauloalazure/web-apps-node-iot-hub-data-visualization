@@ -4,9 +4,9 @@ module.exports = function (context, req) {
     if (req.query.period || (req.body && req.body.period)) {
         context.res = {
             // status: 200, /* Defaults to 200 */
-            body: { "period": (req.query.period || req.body.period), "data": context.bindings.inputDocument},
-            headers: {
-                'Content-Type': 'application/json'
+            body: {
+                "period": (req.query.period || req.body.period),
+                "data": context.bindings.inputDocument
             }
         };
     }
