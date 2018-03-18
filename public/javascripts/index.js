@@ -67,9 +67,10 @@ function loadSensors(config, clbk) {
                   
               var webSensorClassName = webSensorData.className;
               var webSensorApiKey = webSensorData.apiKey;
-                  
+            
+              var Cls = null;
               try {
-                var Cls = eval(webSensorClassName);
+                Cls = eval(webSensorClassName);
               } catch (err) {
                 console.error(err);
                 console.warn("websensor ", sensorInfo, webSensorData, " class not imported");
@@ -85,7 +86,7 @@ function loadSensors(config, clbk) {
               return;
             }
           } else {
-            console.warn("websensor ", sensorInfo, webSensorData, " not found in setup");
+            console.warn("websensor ", sensorInfo, "webSensorData not found in setup");
             return;
           }
       }
@@ -373,10 +374,10 @@ function checkConnection(config) {
     } else { // no messages received
     }
 
-    console.log("connectionTime", connectionTime, "now", now, "lastWebSocketMessage", config.websocket.lastWebSocketMessage, "diffDate", diffDate, "maxWaitTime", config.websocket.maxWaitTime);
+    //console.log("connectionTime", connectionTime, "now", now, "lastWebSocketMessage", config.websocket.lastWebSocketMessage, "diffDate", diffDate, "maxWaitTime", config.websocket.maxWaitTime);
 
     if ( diffDate > config.websocket.maxWaitTime ) { // set as unresposive
-      config.websocket.isConnected == CONNECT_STATUS_UNRESPONSIVE;
+      config.websocket.isConnected = CONNECT_STATUS_UNRESPONSIVE;
     } else { // ok
     }
     
@@ -454,7 +455,7 @@ function onSocketError(event, config) {
   console.error('The connection was closed for reason: ' + reason);
   displayConnectionInfo("error", "The connection was closed for reason: " + reason);
   config.websocket.isConnected = CONNECT_STATUS_DISCONNECTED;
-};
+}
 
 function displayConnectionInfo(level, message) {
   $("#connection").attr('class', level);
