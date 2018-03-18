@@ -21,7 +21,7 @@
       "collectionName": "hometempcollection",
       "connection": "hometempcosmos_DOCUMENTDB",
       "direction": "in",
-      "sqlQuery": "SELECT * FROM c WHERE c._ts >= udf.oneDayAgo() ORDER BY c._ts DESC"
+      "sqlQuery": "SELECT * FROM c WHERE c._ts >= udf.oneDayAgo() ORDER BY c._ts ASC"
     }
   ],
   "disabled": false

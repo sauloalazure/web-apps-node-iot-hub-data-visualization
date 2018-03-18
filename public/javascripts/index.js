@@ -250,19 +250,23 @@ function addHistory(config, clbk) {
       if ( "data" in config.history ) {
         success = true;
         var data = config.history.data;
-        for ( var d=0; d < data.length; d++ ) {
-          var reg = data[d];
-          console.log(reg);
-          processMessage(config, reg);
-        }
+        var d = 0;
+        (function loop() {
+            processMessage(config, data[d]);
+            if (++d < data.length) {
+                setTimeout(loop, 1);  // call myself in 3 seconds time if required
+            } else {
+              clbk(config);
+            }
+        })();
       }
     }
   }
   
   if ( ! success ) {
     console.log("failed processing history. proceeding");
+    clbk(config);
   }
-  clbk(config);
 }
 
 function startWebSensors(config, clbk) {  
