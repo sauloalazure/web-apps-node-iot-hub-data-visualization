@@ -105,7 +105,7 @@ function loadSensors(config, clbk) {
         "fill": fill,
         "type": gtype,
         "yAxisID": axis.id,
-        "label": label + " " + sensorName + (sensorDesc ? " ("+sensorDesc+")" : ""),
+        "label": sensorName + (sensorDesc ? " ("+sensorDesc+")" : ""),
         borderColor: mainColor,
         pointBoarderColor: mainColor,
         pointHoverBorderColor: mainColor,
