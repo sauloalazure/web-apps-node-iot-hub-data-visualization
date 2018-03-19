@@ -1,0 +1,10 @@
+{
+  "event": "{{PARTICLE_EVENT_NAME}}",
+  "temp": "{{t}}",
+  "humi": "{{h}}",
+  "pres": "{{p}}",
+  "sens": "{{s}}",
+  "vers": "{{v}}",
+  "device_id": "{{PARTICLE_DEVICE_ID}}",
+  "published_at": "{{PARTICLE_PUBLISHED_AT}}"
+}
