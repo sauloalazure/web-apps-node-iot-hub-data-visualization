@@ -478,7 +478,8 @@ function processMessage(config, obj) {
 
   if(!obj.published_at || !("vers" in obj) || !("sens" in obj) ) {
     console.warn("misformed data");
-    throw "misformed data";
+    //throw "misformed data";
+    return;
   }
 
   for ( var measumentNum = 0; measumentNum < measurements.length; measumentNum++ ) {
@@ -486,7 +487,8 @@ function processMessage(config, obj) {
     var measurementKey = measurementData.key;
     if (!(measurementKey in obj)) {
       console.warn("misformed data. missing", measurementKey, "key");
-      throw "misformed data. missing" + measurementKey + "key";
+      //throw "misformed data. missing" + measurementKey + "key";
+      return;
     }
   }
   
@@ -507,7 +509,8 @@ function processMessage(config, obj) {
   
   if ( !(sensorId in sensorIds) ) {
     console.warn("unknown sensor", sensorId, sensorIds);
-    throw "unknown sensor: " + sensorId;
+    //throw "unknown sensor: " + sensorId;
+    return;
   }
 
   var input = {};
