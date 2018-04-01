@@ -1,0 +1,46 @@
+[
+        {
+            "id": "OpenWeather",
+            "name" : "OpenWeather",
+            "type": "web",
+            "cityId": "2759794",
+            "interval": 300000
+        },
+        {
+            "id": "WunderGround",
+            "name" : "WunderGround",
+            "type": "web",
+            "cityId": "pws:IZAANDIJ6",
+            "interval": 300000
+        },
+        {
+            "id": "53ff6d066667574834441267",
+            "name" : "Neo",
+            "type": "iot",
+            "desc": "Missing"
+        },
+        {
+            "id": "2e002c000a47343337373738",
+            "name" : "Morph",
+            "type": "iot",
+            "desc": "1st Floor"
+        },
+        {
+            "id": "3d003c000d47343233323032",
+            "name" : "Trinity",
+            "type": "iot",
+            "desc": "G Floor Front"
+        },
+        {
+            "id": "200021000c47343438323536",
+            "name" : "Apoc",
+            "type": "iot",
+            "desc": "G Floor Back"
+        },
+        {
+            "id": "420022001147343438323536",
+            "name" : "Switch",
+            "type": "iot",
+            "desc": "Offline"
+        }
+    ]

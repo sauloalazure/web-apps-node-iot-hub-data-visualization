@@ -1,0 +1,32 @@
+{
+        "maxLen": 60,
+        "graph": {
+            "width": 350,
+            "height": 60,
+            "labelPosition": "right",
+            "displayTitle": false,
+            "titleSize": 16,
+            "type": "line"
+        },
+        "websensors": {
+            "OpenWeather": {
+                "className": "OpenWeather",
+                "apiKey": "7250c65f946f7133658dd6c28e188901"
+            },
+            "WunderGround": {
+               "className": "WunderGround",
+               "apiKey": "4e8efbd62eb9ae60"
+            }
+        },
+        "history": {
+            "display": "lastHour",
+            "endpoints": {
+                "lastHour": "https://red.home.aflitos.net/nodes/api/HomeTemp/lastHour",
+                "lastDay": "https://red.home.aflitos.net/nodes/api/HomeTemp/lastDay"
+            }
+        },
+        "websocket": {
+            "maxWaitTime": 120000,
+            "suffix": "nodes/ws/HomeTemp"
+        }
+}

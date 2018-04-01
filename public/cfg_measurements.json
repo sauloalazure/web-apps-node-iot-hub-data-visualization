@@ -1,0 +1,50 @@
+[
+        {
+            "key": "temp",
+            "label": "Temperature (C)",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "mpn65",
+            "axis": {
+                "id": "Temperature",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Temperature (C)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        },
+        {
+            "key": "pres",
+            "label": "Pressure (Pa)",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "mpn65",
+            "axis": {
+                "id": "Pressure",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Pressure (Pa)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        },
+        {
+            "key": "humi",
+            "label": "Humidity (%)",
+            "type": "line",
+            "fill": false,
+            "colorScheme": "mpn65",
+            "axis": {
+                "id": "Humidity",
+                "type": "linear",
+                "scaleLabel": {
+                    "labelString": "Humidity (%)",
+                    "display": true
+                },
+                "position": "left"
+            }
+        }
+    ]
