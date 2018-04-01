@@ -25,6 +25,16 @@ $(document).ready(function () {
 function getConfigs(confs, conf_name) {
   var conf_file = "cfg_"+conf_name+".json";
 
+  if ( conf_name == "setup" ) {
+    if (location.host.endsWith("azurewebsites.net")) {
+      conf_file = "cfg_"+conf_name+"_azure.json";
+    } else {
+      conf_file = "cfg_"+conf_name+"_red.json";
+    }
+  }
+  
+  console.warn("conf_file", conf_file);
+
   $.getJSON(conf_file, function(config) {
     console.log(conf_name, config); // this will show the info in firebug console
 
@@ -229,12 +239,17 @@ function loadHistory(config, clbk) {
           success = true;
           $.getJSON(endpoint, function(history) {
             console.log("history", history);
-            var period = null
-            if      ( "period"    in history ) { period = history.period;    }
-            else if ( "operation" in history ) { period = history.operation; }
+            var period = null;
             var data = null;
-            if      ( "data"      in history ) { data = history.data;    }
-            else if ( "payload"   in history ) { data = history.payload; }
+
+            if (location.host.endsWith("azurewebsites.net")) {
+              period = history.period;
+              data   = history.data;
+            } else {
+              period = history.operation;
+              data   = history.payload;
+            }
+
             config.setup.history.data = { "period": period, "data": data };
             addHistory(config, clbk);
           })
@@ -794,3 +809,4 @@ function isJson(item) {
 
   return [ false, item ];
 }
+
