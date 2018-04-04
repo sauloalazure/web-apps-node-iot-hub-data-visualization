@@ -347,9 +347,10 @@ function startWebSocket(config, clbk) {
 
 function connectWebSocket(config) {
   var suffix = ("suffix" in config.setup.websocket ? ("/" + config.setup.websocket.suffix) : "");
+  var proto = ( location.protocol == "https:" ? "wss:" : "ws:");
 
   //console.warn(config.setup.websocket);
-  config.setup.websocket.socket = new WebSocket("wss://" + location.host + suffix);
+  config.setup.websocket.socket = new WebSocket( proto + "//" + location.host + suffix);
 
   config.setup.websocket.isConnected = CONNECT_STATUS_CONNECTING;
 
