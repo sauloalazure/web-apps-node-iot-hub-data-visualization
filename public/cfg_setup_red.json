@@ -21,8 +21,8 @@
         "history": {
             "display": "lastHour",
             "endpoints": {
-                "lastHour": "https://red.home.aflitos.net/nodes/api/HomeTemp/lastHour",
-                "lastDay": "https://red.home.aflitos.net/nodes/api/HomeTemp/lastDay"
+                "lastHour": "/nodes/api/HomeTemp/lastHour",
+                "lastDay": "/nodes/api/HomeTemp/lastDay"
             }
         },
         "websocket": {
