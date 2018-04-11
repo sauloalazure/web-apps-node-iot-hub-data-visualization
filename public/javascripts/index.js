@@ -32,7 +32,7 @@ function getConfigs(confs, conf_name) {
       conf_file = "cfg_"+conf_name+"_red.json";
     }
   }
-  
+
   console.warn("conf_file", conf_file);
 
   $.getJSON(conf_file, function(config) {
@@ -353,6 +353,11 @@ function connectWebSocket(config) {
   var suffix = ("suffix" in config.setup.websocket ? ("/" + config.setup.websocket.suffix) : "");
   var proto = ( location.protocol == "https:" ? "wss:" : "ws:");
 
+  if ( "keepAlive" in config.setup.websocket ) {
+    var keepAlive = config.setup.websocket.keepAlive * 1000;
+    setInterval(function() { keepWebsocketAlive(config); }, keepAlive);
+  }
+
   //console.warn(config.setup.websocket);
   config.setup.websocket.socket = new WebSocket( proto + "//" + location.host + suffix);
 
@@ -454,6 +459,15 @@ function checkConnection(config) {
     }, 5000);
   }
 }
+
+function keepWebsocketAlive(config) {
+  //console.log("ping");
+  if ( config.setup.websocket.isConnected == CONNECT_STATUS_CONNECTED ) { // connected
+    var msg = {"operation": "ping", "msgid": 1, "payload": { "_ts": new Date().getTime() }};
+    config.setup.websocket.socket.send(JSON.stringify(msg));
+  }
+}
+
 
 function onSocketError(event, config) {
   // https://stackoverflow.com/questions/18803971/websocket-onerror-how-to-read-error-description

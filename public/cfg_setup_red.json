@@ -27,6 +27,7 @@
         },
         "websocket": {
             "maxWaitTime": 120000,
+            "keepAlive": 1,
             "suffix": "nodes/ws/HomeTemp"
         }
 }
