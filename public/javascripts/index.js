@@ -288,15 +288,19 @@ function addHistory(config, clbk) {
   else {
     console.log('adding period: ', period, 'data', data);
     success = true;
-    var d = 0;
-    (function loop() {
-        processMessage(config, data[d]);
-        if (++d < data.length) {
+    if ( data.length > 0 ) {
+      var d = 0;
+      (
+        function loop() {
+          processMessage(config, data[d]);
+          if (++d < data.length) {
             setTimeout(loop, 1);  // call myself in 3 seconds time if required
-        } else {
+          } else {
             clbk(config);
+          }
         }
-    })();
+      )();
+    }
   }
 
   if ( ! success ) {
