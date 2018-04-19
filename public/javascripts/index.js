@@ -368,7 +368,7 @@ function connectWebSocket(config) {
     displayConnectionInfo("success", 'Successfully connect WebSocket');
     config.setup.websocket.isConnected = CONNECT_STATUS_CONNECTED;
     config.setup.websocket.connectionTime = new Date().getTime();
-    delete config.setup.websocket.lastWebSocketMessage;
+    if ( "lastWebSocketMessage" in config.setup.websocket ) { delete config.setup.websocket.lastWebSocketMessage; }
   };
 
   config.setup.websocket.socket.onmessage = function (message) {
