@@ -1,9 +1,21 @@
 //
 // DEFINE VERSION AND DEBUG
 //
-#define VERSION "2018_03_15_2130"
-#define DEBUG_SERIAL
+#define VERSION "2018_07_01_1740"
+// #define DEBUG_SERIAL
 #define DEBUG_WEB
+
+
+
+// NEO IS PARTICLE CORE AND THEREFORE DOES NOT HAVE
+// ENOUGH MEMORY FOR ALL LIBRARIES
+// SET THIS TO TRUE WHEN COMPILING TO NEO
+
+#define IS_NEO
+
+#ifdef IS_NEO
+    #define IS_CORE
+#endif
 
 
 
@@ -11,9 +23,10 @@
 //
 // CONSTANTS
 //
-#define SEND_AFTER_MS   10000 // run after N milli seconds connected to the cloud
-#define SLEEP_DELAY_MS  10000 // after sending the message, wait N milli seconds before going to sleep
-#define SLEEP_FOR_S        60 // sleep for N SECONDS
+#define SEND_AFTER_MS     10000 // run after N milli seconds connected to the cloud
+#define SLEEP_DELAY_MS    10000 // after sending the message, wait N milli seconds before going to sleep
+#define TRY_SENSOR_FOR_MS 10000 // try to connect to sensor for N milli seconds before giving up
+#define SLEEP_FOR_S          60 // sleep for N SECONDS
 
 #define CHANNEL_LOG     "LOG"
 #define CHANNEL_SENSOR  "SENSOR"
@@ -33,13 +46,18 @@
 //
 #define TINKER
 
-#define SENSOR_HTU21D_ADAFRUIT
-// #define SENSOR_HTU21D_GENERIC
-#define SENSOR_SI7021_ADAFRUIT
-#define SENSOR_BMP085_ADAFRUIT
-#define SENSOR_BMP183_ADAFRUIT
-// #define SENSOR_TMP36
+#ifdef IS_NEO
+    #define SENSOR_HTU21D_ADAFRUIT
+#endif
 
+#ifndef IS_CORE
+    #define SENSOR_HTU21D_ADAFRUIT
+    // #define SENSOR_HTU21D_GENERIC
+    #define SENSOR_SI7021_ADAFRUIT
+    #define SENSOR_BMP085_ADAFRUIT
+    #define SENSOR_BMP183_ADAFRUIT
+    #define SENSOR_TMP36
+#endif
 
 
 
@@ -101,27 +119,22 @@
 //
 // standard dictated that they should be placed after all libraries are loaded
 //
-#ifdef SENSOR_HTU21D_ADAFRUIT
-    Adafruit_HTU21DF htu = Adafruit_HTU21DF();
-#endif
 
-#ifdef SENSOR_HTU21D_GENERIC
-    HTU21DF htu = HTU21DF();
-#endif
 
 #ifdef SENSOR_HTU21D
     void checkSensorHTU21D();
-#endif
+#endif    
+
 
 #ifdef SENSOR_SI7021_ADAFRUIT
     void checkSensorSI7021();
-    Adafruit_Si7021 si7021 = Adafruit_Si7021();
 #endif
+
 
 #ifdef SENSOR_BMP085_ADAFRUIT
     void checkSensorBMP085();
-    Adafruit_BMP085 bmp085 = Adafruit_BMP085();
 #endif
+
 
 #ifdef SENSOR_BMP183_ADAFRUIT
     // For hardware SPI:
@@ -129,15 +142,15 @@
     // See  http://arduino.cc/en/Reference/SPI for your Arduino's SPI pins!
     // On UNO, Clock is #13, MISO is #12 and MOSI is #11
     void checkSensorBMP183();
-    void displaySensorDetails(void);
-    Adafruit_BMP183_Unified bmp183 = Adafruit_BMP183_Unified(BMP183_CS);  // use hardware SPI
 #endif
 
+
 #ifdef SENSOR_TMP36
-    void checkSensorTMP36();
+    void   checkSensorTMP36();
     double readMilliVolts(int pin);
     double TMP36GetCentigrade(int pin);
 #endif
+
 
 #ifdef TINKER
     /* Function prototypes -------------------------------------------------------*/
@@ -179,8 +192,8 @@ typedef void (*returnVoidFunc)(void);
 
 
 typedef struct {
-    String deviceID;
-    String deviceNick;
+    String         deviceID;
+    String         deviceNick;
     returnVoidFunc func;
 } deviceConf;
 
@@ -188,14 +201,29 @@ typedef struct {
 void emptyPlaceholderFunc(void) {};
 
 const deviceConf deviceConfList[] = {
-    { "53ff6d066667574834441267", "neo"    , checkSensorHTU21D    },
-    { "2e002c000a47343337373738", "morph"  , checkSensorBMP085    },
-    { "3d003c000d47343233323032", "trinity", checkSensorSI7021    },
-    { "200021000c47343438323536", "apoc"   , checkSensorBMP183    },
-    { "420022001147343438323536", "switch" , emptyPlaceholderFunc } // offline
-};
+    #ifdef SENSOR_HTU21D
+        { "53ff6d066667574834441267", "neo"    , checkSensorHTU21D    },
+    #endif
+    
+    #ifdef SENSOR_BMP085_ADAFRUIT
+        { "2e002c000a47343337373738", "morph"  , checkSensorBMP085    },
+    #endif
+    
+    #ifdef SENSOR_SI7021_ADAFRUIT
+        { "3d003c000d47343233323032", "trinity", checkSensorSI7021    },
+        { "420022001147343438323536", "switch" , checkSensorSI7021    },
+    #endif
+    
+    #ifdef SENSOR_BMP183_ADAFRUIT
+        { "200021000c47343438323536", "apoc"   , checkSensorBMP183    },
+    #endif
 
-const int numDevices = 5;
+    #ifdef SENSOR_TMP36
+    
+    #endif
+    
+        // { "420022001147343438323536", "switch" , emptyPlaceholderFunc } // offline
+};
 
 const String myDeviceID = System.deviceID();
 
@@ -206,6 +234,8 @@ const String myDeviceID = System.deviceID();
 unsigned long firstAvailable = 0;
 bool          wifiReady      = false;
 bool          cloudReady     = false;
+// const int numDevices = 5;
+int           numDevices     = 0;
 char          publishString[254];
 
 
@@ -244,6 +274,7 @@ void setup()
     firstAvailable = 0;
     wifiReady      = false;
     cloudReady     = false;
+    numDevices     = sizeof(deviceConfList)/sizeof(deviceConfList[0]);
 }
 
 
@@ -287,26 +318,6 @@ void loop()
                     deviceConfList[i].func();
                 }
             }
-
-            // #ifdef SENSOR_HTU21D
-            //     checkSensorHTU21D();
-            // #endif
-
-            // #ifdef SENSOR_SI7021_ADAFRUIT
-            //     checkSensorSI7021();
-            // #endif
-
-            // #ifdef SENSOR_BMP085_ADAFRUIT
-            //     checkSensorBMP085();
-            // #endif
-
-            // #ifdef SENSOR_BMP183_ADAFRUIT
-            //     checkSensorBMP183();
-            // #endif
-
-            // #ifdef SENSOR_TMP36
-            //     checkSensorTMP36();
-            // #endif
 
             #ifdef DEBUG_SERIAL
     	        Serial.println("signal sent. sleeping");
@@ -353,6 +364,19 @@ void loop()
             Particle.publish(CHANNEL_LOG,"TRYING I2C",PRIVATE);
         #endif
 
+
+        #ifdef SENSOR_HTU21D_ADAFRUIT
+            Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+        #endif
+        
+        #ifdef SENSOR_HTU21D_GENERIC
+            HTU21DF          htu = HTU21DF();
+        #endif
+
+
+        unsigned long sensorStartTime = millis();
+        bool          sensorSuccess   = true;
+
     	while(! htu.begin()){
     	    #ifdef DEBUG_WEB
                 Particle.publish(CHANNEL_LOG,"WIRE IS NOT ENABLED",PRIVATE);
@@ -363,27 +387,44 @@ void loop()
             	Serial.print(SENSOR_HTU21D_WAIT_BEGIN);
             	Serial.println("");
             #endif
+    	    
+    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	        sensorSuccess   = false;
+    	        break;   
+    	    }
         
     	    delay(SENSOR_HTU21D_WAIT_BEGIN);
     	}
 
-    	#ifdef DEBUG_WEB
-    	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
-    	#endif
+        if ( sensorSuccess ) {
+        	#ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("HTU21D found. continuing");
+            #endif
         
-        #ifdef DEBUG_SERIAL
-            Serial.println("HTU21D found. continuing");
-        #endif
-    
-        sprintf(publishString,"{\"t\":%0.2f,\"h\":%0.2f,\"p\":null,\"s\":\"HTU21D\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),VERSION);
-    
-        #ifdef DEBUG_SERIAL
-    	    Serial.print("sending HTU21D ");
-    	    Serial.print(publishString);
-    	    Serial.println("");
-        #endif
+    	    delay(SENSOR_HTU21D_WAIT_BEGIN);
+
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"HTU21D\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),VERSION);
         
-        Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            #ifdef DEBUG_SERIAL
+        	    Serial.print("sending HTU21D ");
+        	    Serial.print(publishString);
+        	    Serial.println("");
+            #endif
+            
+            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+        } else {
+            #ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C UNSUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("HTU21D not found. skipping");
+            #endif
+        }
     }
 #endif
 
@@ -403,6 +444,11 @@ void loop()
             Particle.publish(CHANNEL_LOG,"TRYING I2C",PRIVATE);
         #endif
 
+        Adafruit_Si7021 si7021 = Adafruit_Si7021();
+
+        unsigned long sensorStartTime = millis();
+        bool          sensorSuccess   = true;
+
     	while(! si7021.begin()){
     	    #ifdef DEBUG_WEB
                 Particle.publish(CHANNEL_LOG,"WIRE IS NOT ENABLED",PRIVATE);
@@ -413,27 +459,44 @@ void loop()
             	Serial.print(SENSOR_SI7021_WAIT_BEGIN);
             	Serial.println("");
             #endif
+
+    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	        sensorSuccess   = false;
+    	        break;   
+    	    }
         
     	    delay(SENSOR_SI7021_WAIT_BEGIN);
     	}
 
-    	#ifdef DEBUG_WEB
-    	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
-    	#endif
-        
-        #ifdef DEBUG_SERIAL
-            Serial.println("SI7021 found. continuing");
-        #endif
+        if ( sensorSuccess ) {
+        	#ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
+        	#endif
 
-        sprintf(publishString,"{\"t\":%0.2f,\"h\":%0.2f,\"p\":null,\"s\":\"SI7021\",\"v\":\"%s\"}",si7021.readTemperature(),si7021.readHumidity(),VERSION);
+            #ifdef DEBUG_SERIAL
+                Serial.println("SI7021 found. continuing");
+            #endif
+    
+    	    delay(SENSOR_SI7021_WAIT_BEGIN);
 
-        #ifdef DEBUG_SERIAL
-    	    Serial.print("sending SI7021 ");
-    	    Serial.print(publishString);
-    	    Serial.println("");
-        #endif
-        
-        Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"SI7021\",\"v\":\"%s\"}",si7021.readTemperature(),si7021.readHumidity(),VERSION);
+
+            #ifdef DEBUG_SERIAL
+        	    Serial.print("sending SI7021 ");
+        	    Serial.print(publishString);
+        	    Serial.println("");
+            #endif
+            
+            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+        } else {
+            #ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C UNSUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("SI7021 not found. skipping");
+            #endif
+        }
     }
 #endif
 
@@ -453,6 +516,11 @@ void loop()
             Particle.publish(CHANNEL_LOG,"TRYING I2C",PRIVATE);
         #endif
 
+        Adafruit_BMP085 bmp085 = Adafruit_BMP085();
+
+        unsigned long sensorStartTime = millis();
+        bool          sensorSuccess   = true;
+
     	while(! bmp085.begin()){
     	    #ifdef DEBUG_WEB
                 Particle.publish(CHANNEL_LOG,"WIRE IS NOT ENABLED",PRIVATE);
@@ -463,27 +531,45 @@ void loop()
             	Serial.print(SENSOR_BMP085_WAIT_BEGIN);
             	Serial.println("");
             #endif
+
+    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	        sensorSuccess   = false;
+    	        break;   
+    	    }
         
     	    delay(SENSOR_BMP085_WAIT_BEGIN);
     	}
 
-    	#ifdef DEBUG_WEB
-    	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
-    	#endif
-        
-        #ifdef DEBUG_SERIAL
-            Serial.println("BMP085 found. continuing");
-        #endif
 
-        sprintf(publishString,"{\"t\":%0.2f,\"h\":null,\"p\":%ld,\"s\":\"BMP085\",\"v\":\"%s\"}",bmp085.readTemperature(),bmp085.readPressure(),VERSION);
+        if ( sensorSuccess ) {
+        	#ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("BMP085 found. continuing");
+            #endif
+    
+    	    delay(SENSOR_BMP085_WAIT_BEGIN);
 
-        #ifdef DEBUG_SERIAL
-    	    Serial.print("sending BMP085 ");
-    	    Serial.print(publishString);
-    	    Serial.println("");
-        #endif
-        
-        Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"BMP085\",\"v\":\"%s\"}",bmp085.readTemperature(),bmp085.readPressure(),VERSION);
+    
+            #ifdef DEBUG_SERIAL
+        	    Serial.print("sending BMP085 ");
+        	    Serial.print(publishString);
+        	    Serial.println("");
+            #endif
+            
+            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+        } else {
+            #ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C UNSUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("BMP085 not found. skipping");
+            #endif
+        }
     }
 #endif
 
@@ -503,6 +589,11 @@ void loop()
             Particle.publish(CHANNEL_LOG,"TRYING SPI",PRIVATE);
         #endif
 
+        Adafruit_BMP183_Unified bmp183 = Adafruit_BMP183_Unified(BMP183_CS);  // use hardware SPI
+
+        unsigned long sensorStartTime = millis();
+        bool          sensorSuccess   = true;
+
     	while(! bmp183.begin()){
     	    #ifdef DEBUG_WEB
                 Particle.publish(CHANNEL_LOG,"SPI IS NOT ENABLED",PRIVATE);
@@ -515,53 +606,75 @@ void loop()
             #endif
         
     	    delay(SENSOR_BMP183_WAIT_BEGIN);
+
+    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	        sensorSuccess   = false;
+    	        break;   
+    	    }
     	}
 
-    	#ifdef DEBUG_WEB
-    	    Particle.publish(CHANNEL_LOG,"SPI SUCCESSFUL",PRIVATE);
-    	#endif
-        
-        #ifdef DEBUG_SERIAL
-            Serial.println("BMP183 found. continuing");
-            displaySensorDetails();
-        #endif
 
-        sensors_event_t event;
-        bmp183.getEvent(&event);
-        
-        /* Display the results (barometric pressure is measure in hPa) */
-        if (event.pressure)
-        {
-            int32_t pressure = (int32_t)(bmp183.getPressure());
-            sprintf(publishString,"{\"t\":%0.2f,\"h\":null,\"p\":%ld,\"s\":\"BMP183\",\"v\":\"%s\"}",bmp183.getTemperature(),pressure,VERSION);
+        if ( sensorSuccess ) {
+        	#ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"SPI SUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("BMP183 found. continuing");
+        	#endif
+
+    	    delay(SENSOR_BMP183_WAIT_BEGIN);
 
             #ifdef DEBUG_SERIAL
-        	    Serial.print("sending BMP183 ");
-        	    Serial.print(publishString);
-        	    Serial.println("");
+                sensor_t sensor;
+                bmp183.getSensor(&sensor);
+                Serial.println("------------------------------------");
+                Serial.print  ("Sensor:       "); Serial.println(sensor.name      );
+                Serial.print  ("Driver Ver:   "); Serial.println(sensor.version   );
+                Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id );
+                Serial.print  ("Max Value:    "); Serial.print(  sensor.max_value ); Serial.println(" hPa");
+                Serial.print  ("Min Value:    "); Serial.print(  sensor.min_value ); Serial.println(" hPa");
+                Serial.print  ("Resolution:   "); Serial.print(  sensor.resolution); Serial.println(" hPa");  
+                Serial.println("------------------------------------");
+                Serial.println("");
+                delay(500);
             #endif
-            
-            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
-        }
-        else
-        {
-            Serial.println("Sensor error");
-        }
-    }
 
-    void displaySensorDetails(void) {
-        sensor_t sensor;
-        bmp183.getSensor(&sensor);
-        Serial.println("------------------------------------");
-        Serial.print  ("Sensor:       "); Serial.println(sensor.name);
-        Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
-        Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
-        Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" hPa");
-        Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" hPa");
-        Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" hPa");  
-        Serial.println("------------------------------------");
-        Serial.println("");
-        delay(500);
+            sensors_event_t event;
+            bmp183.getEvent(&event);
+            
+            /* Display the results (barometric pressure is measure in hPa) */
+            if (event.pressure)
+            {
+                int32_t pressure = (int32_t)(bmp183.getPressure());
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"BMP183\",\"v\":\"%s\"}",bmp183.getTemperature(),pressure,VERSION);
+    
+                #ifdef DEBUG_SERIAL
+            	    Serial.print("sending BMP183 ");
+            	    Serial.print(publishString);
+            	    Serial.println("");
+                #endif
+                
+                Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            } else {
+                #ifdef DEBUG_WEB
+        	        Particle.publish(CHANNEL_LOG,"SENSOR ERROR",PRIVATE);
+        	    #endif
+
+                #ifdef DEBUG_SERIAL
+                    Serial.println("BMP183 error");
+                #endif
+            }
+        } else {
+            #ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C UNSUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("BMP183 not found. skipping");
+            #endif
+        }
+
     }
 #endif
 
@@ -581,7 +694,7 @@ void loop()
         pinMode(SENSOR_TMP36_PIN, INPUT);
         analogRead(SENSOR_TMP36_PIN);
     
-        sprintf(publishString,"{\"t\":%0.2f,\"h\":null,\"p\":null,\"s\":\"TMP36\",\"v\":\"%s\"}",TMP36GetCentigrade(SENSOR_TMP36_PIN),VERSION);
+        sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":null,\"s\":\"TMP36\",\"v\":\"%s\"}",TMP36GetCentigrade(SENSOR_TMP36_PIN),VERSION);
     
         #ifdef DEBUG_SERIAL
     	    Serial.print("sending TMP36 ");
@@ -594,6 +707,7 @@ void loop()
     
     double readMilliVolts(int pin) {
         double val = 0.0;
+        
         for ( int i = 0; i < SENSOR_TMP36_SAMPLES; ++i ) {
             val += analogRead(pin);
             delay(SENSOR_TMP36_WAIT);
@@ -601,7 +715,7 @@ void loop()
         
         val /= SENSOR_TMP36_SAMPLES;
         
-    	return map(val, 0, 4095, 0, AREF_VOLTAGE);
+    	return map(val, double(0), double(4095), double(0), double(AREF_VOLTAGE));
     }
     
     double TMP36GetCentigrade(int pin)
@@ -737,4 +851,5 @@ void loop()
     	else return -2;
     }
 #endif
+
 

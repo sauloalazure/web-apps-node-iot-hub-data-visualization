@@ -17,7 +17,7 @@
             "id": "53ff6d066667574834441267",
             "name" : "Neo",
             "type": "iot",
-            "desc": "Missing"
+            "desc": "Offline"
         },
         {
             "id": "2e002c000a47343337373738",
@@ -41,6 +41,6 @@
             "id": "420022001147343438323536",
             "name" : "Switch",
             "type": "iot",
-            "desc": "Offline"
+            "desc": "Attic"
         }
     ]
