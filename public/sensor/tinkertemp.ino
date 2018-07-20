@@ -756,9 +756,11 @@ void loop()
     	    delay(SENSOR_BME280_WAIT_BEGIN);
 
             float temperature = bme280.readTemperature();
+            delay(10);
             float pressure    = bme280.readPressure();
+            delay(10);
             float humidity    = bme280.readHumidity();
-            float altitude    = bme280.readAltitude(SEALEVELPRESSURE_HPA);
+            // float altitude    = bme280.readAltitude(SEALEVELPRESSURE_HPA);
 
             #ifdef DEBUG_SERIAL
                 Serial.print("Temperature = ");
@@ -770,9 +772,9 @@ void loop()
                 Serial.print(pressure / 100.0F);
                 Serial.println(" hPa");
                 
-                Serial.print("Approx. Altitude = ");
-                Serial.print(altitude);
-                Serial.println(" m");
+                // Serial.print("Approx. Altitude = ");
+                // Serial.print(altitude);
+                // Serial.println(" m");
                 
                 Serial.print("Humidity = ");
                 Serial.print(humidity);
@@ -781,11 +783,10 @@ void loop()
                 delay(500);
             #endif
 
-            /* Display the results (barometric pressure is measure in hPa) */
             if (pressure)
             {
-                int32_t pressure = (int32_t)(pressure);
-                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%ld,\"s\":\"BME280\",\"v\":\"%s\"}",temperature,humidity,pressure,VERSION);
+                int32_t pressureI = (int32_t)(pressure);
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%ld,\"s\":\"BME280\",\"v\":\"%s\"}",temperature,humidity,pressureI,VERSION);
     
                 #ifdef DEBUG_SERIAL
             	    Serial.print("sending BME280 ");
