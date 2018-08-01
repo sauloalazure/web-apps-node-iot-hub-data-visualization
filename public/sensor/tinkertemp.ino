@@ -1,9 +1,12 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_BME280.h>
+
 //
 // DEFINE VERSION AND DEBUG
 //
-#define VERSION "2018_07_01_1740"
+#define VERSION "2018_07_20_2100"
 // #define DEBUG_SERIAL
-#define DEBUG_WEB
+// #define DEBUG_WEB
 
 
 
@@ -11,7 +14,7 @@
 // ENOUGH MEMORY FOR ALL LIBRARIES
 // SET THIS TO TRUE WHEN COMPILING TO NEO
 
-#define IS_NEO
+// #define IS_NEO
 
 #ifdef IS_NEO
     #define IS_CORE
@@ -28,10 +31,10 @@
 #define TRY_SENSOR_FOR_MS 10000 // try to connect to sensor for N milli seconds before giving up
 #define SLEEP_FOR_S          60 // sleep for N SECONDS
 
-#define CHANNEL_LOG     "LOG"
-#define CHANNEL_SENSOR  "SENSOR"
-#define CHANNEL_DATA    "HomeTemp"
-#define PIN_LIGHT       D7
+#define CHANNEL_LOG       "LOG"
+#define CHANNEL_SENSOR    "SENSOR"
+#define CHANNEL_DATA      "HomeTemp"
+#define PIN_LIGHT         D7
 
 #ifdef DEBUG_SERIAL
     #define DEBUG_SERIAL_SPEED 115200
@@ -56,6 +59,7 @@
     #define SENSOR_SI7021_ADAFRUIT
     #define SENSOR_BMP085_ADAFRUIT
     #define SENSOR_BMP183_ADAFRUIT
+    #define SENSOR_BME280_ADAFRUIT
     #define SENSOR_TMP36
 #endif
 
@@ -97,6 +101,21 @@
     // You'll also need a chip-select pin, use any pin!
     #define BMP183_CS                  A2
     #define SENSOR_BMP183_WAIT_BEGIN 5000
+#endif
+
+#ifdef SENSOR_BME280_ADAFRUIT
+    // https://github.com/adafruit/Adafruit_BME280_Library
+    #define BME280_ADDRESS                (0x76)
+    #include <Adafruit_Sensor.h>
+    #include <Adafruit_BME280.h>
+    
+    // #define BME_SCK D4
+    // #define BME_MISO D3
+    // #define BME_MOSI D2
+    // #define BME_CS D5
+    
+    #define SEALEVELPRESSURE_HPA (1013.25)
+    #define SENSOR_BME280_WAIT_BEGIN 5000
 #endif
 
 #ifdef SENSOR_TMP36
@@ -142,6 +161,11 @@
     // See  http://arduino.cc/en/Reference/SPI for your Arduino's SPI pins!
     // On UNO, Clock is #13, MISO is #12 and MOSI is #11
     void checkSensorBMP183();
+#endif
+
+
+#ifdef SENSOR_BME280_ADAFRUIT
+    void checkSensorBME280();
 #endif
 
 
@@ -215,14 +239,14 @@ const deviceConf deviceConfList[] = {
     #endif
     
     #ifdef SENSOR_BMP183_ADAFRUIT
-        { "200021000c47343438323536", "apoc"   , checkSensorBMP183    },
+        // { "200021000c47343438323536", "apoc"   , checkSensorBMP183    },
     #endif
 
     #ifdef SENSOR_TMP36
-    
+        { "200021000c47343438323536", "apoc"   , checkSensorBME280    },
     #endif
     
-        // { "420022001147343438323536", "switch" , emptyPlaceholderFunc } // offline
+    // { "420022001147343438323536", "switch" , emptyPlaceholderFunc } // offline
 };
 
 const String myDeviceID = System.deviceID();
@@ -674,7 +698,121 @@ void loop()
                 Serial.println("BMP183 not found. skipping");
             #endif
         }
+    }
+#endif
 
+
+#ifdef SENSOR_BME280_ADAFRUIT
+    void checkSensorBME280() {
+
+        // https://github.com/adafruit/Adafruit_BME280_Library
+
+        #ifdef DEBUG_WEB
+            Particle.publish(CHANNEL_SENSOR,"SENSOR_BME280",PRIVATE);
+        #endif
+
+        #ifdef DEBUG_SERIAL
+        	Serial.println("setting up BME280");
+        #endif
+
+        #ifdef DEBUG_WEB
+            Particle.publish(CHANNEL_LOG,"TRYING I2C",PRIVATE);
+        #endif
+
+        Adafruit_BME280 bme280 = Adafruit_BME280(); // I2C
+
+        unsigned long sensorStartTime = millis();
+        bool          sensorSuccess   = true;
+
+    	while(! bme280.begin(BME280_ADDRESS)){
+    	    #ifdef DEBUG_WEB
+                Particle.publish(CHANNEL_LOG,"I2C IS NOT ENABLED",PRIVATE);
+            #endif
+
+            #ifdef DEBUG_SERIAL
+            	Serial.print("BME280 not found. waiting ");
+            	Serial.print(SENSOR_BME280_WAIT_BEGIN);
+            	Serial.println("");
+            #endif
+        
+    	    delay(SENSOR_BME280_WAIT_BEGIN);
+
+    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	        sensorSuccess   = false;
+    	        break;   
+    	    }
+    	}
+
+
+        if ( sensorSuccess ) {
+        	#ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C SUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("BME280 found. continuing");
+        	#endif
+
+    	    delay(SENSOR_BME280_WAIT_BEGIN);
+
+            float temperature = bme280.readTemperature();
+            delay(10);
+            float pressure    = bme280.readPressure();
+            delay(10);
+            float humidity    = bme280.readHumidity();
+            // float altitude    = bme280.readAltitude(SEALEVELPRESSURE_HPA);
+
+            #ifdef DEBUG_SERIAL
+                Serial.print("Temperature = ");
+                Serial.print(temperature);
+                Serial.println(" *C");
+                
+                Serial.print("Pressure = ");
+                
+                Serial.print(pressure / 100.0F);
+                Serial.println(" hPa");
+                
+                // Serial.print("Approx. Altitude = ");
+                // Serial.print(altitude);
+                // Serial.println(" m");
+                
+                Serial.print("Humidity = ");
+                Serial.print(humidity);
+                Serial.println(" %");
+
+                delay(500);
+            #endif
+
+            if (pressure)
+            {
+                int32_t pressureI = (int32_t)(pressure);
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%ld,\"s\":\"BME280\",\"v\":\"%s\"}",temperature,humidity,pressureI,VERSION);
+    
+                #ifdef DEBUG_SERIAL
+            	    Serial.print("sending BME280 ");
+            	    Serial.print(publishString);
+            	    Serial.println("");
+                #endif
+                
+                Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            } else {
+                #ifdef DEBUG_WEB
+        	        Particle.publish(CHANNEL_LOG,"SENSOR ERROR",PRIVATE);
+        	    #endif
+
+                #ifdef DEBUG_SERIAL
+                    Serial.println("BME280 error");
+                #endif
+            }
+        } else {
+            #ifdef DEBUG_WEB
+        	    Particle.publish(CHANNEL_LOG,"I2C UNSUCCESSFUL",PRIVATE);
+        	#endif
+            
+            #ifdef DEBUG_SERIAL
+                Serial.println("BME280 not found. skipping");
+            #endif
+        }
     }
 #endif
 
@@ -851,5 +989,4 @@ void loop()
     	else return -2;
     }
 #endif
-
 
