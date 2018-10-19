@@ -3,7 +3,7 @@
 //
 // DEFINE VERSION AND DEBUG
 //
-#define VERSION "2018_10_18_0000"
+#define VERSION "2018_10_19_0000"
 // #define DEBUG_SERIAL
 #define DEBUG_WEB
 
@@ -30,13 +30,24 @@
 #define TRY_SENSOR_FOR_MS 10000 // try to connect to sensor for N milli seconds before giving up
 #define SLEEP_FOR_S          60 // sleep for N SECONDS
 
-#define CHANNEL_LOG       "LOG"
-#define CHANNEL_SENSOR    "SENSOR"
-#define CHANNEL_DATA      "HomeTemp"
-#define PIN_LIGHT         D7
+#define CHANNEL_DATA        0
+#define CHANNEL_SENSOR      1
+#define CHANNEL_ERROR       2
+#define CHANNEL_LOG         3
+#define CHANNEL_INFO        4
+
+#define CHANNEL_DATA_NAME   "HomeTemp"
+#define CHANNEL_SENSOR_NAME "SENSOR"
+#define CHANNEL_ERROR_NAME  "ERROR"
+#define CHANNEL_LOG_NAME    "LOG"
+#define CHANNEL_INFO_NAME   "INFO"
+
+#define CHANNEL_VERBOSITY   CHANNEL_ERROR
+
+#define PIN_LIGHT              D7
 
 #define MAX_DEVICE_CONF_LIST   20
-#define JSON_BUFFER_SIZE     4096
+#define JSON_BUFFER_SIZE     1024
 
 #ifdef DEBUG_SERIAL
     #define DEBUG_SERIAL_SPEED 115200
@@ -196,24 +207,54 @@
 
 
 
-void log_serial(const String& msg) {
+void log_serial(const String& msg, const bool& endl=true) {
     #ifdef DEBUG_SERIAL
-        Serial.println(msg);
+        if ( endl ) {
+            Serial.println(msg);
+        } else {
+            Serial.print(msg);
+        }
     #endif
 }
 
-void log_web(const String& msg, const String& channel=CHANNEL_LOG) {
+void log_web(const String& msg, const int& channel=CHANNEL_LOG) {
     #ifdef DEBUG_WEB
-        Particle.publish(channel, msg, PRIVATE);
-        delay(500);
+        // #define CHANNEL_VERBOSITY   2
+        
+        // #define CHANNEL_DATA        0
+        // #define CHANNEL_SENSOR      1
+        // #define CHANNEL_ERROR       2
+        // #define CHANNEL_LOG         3
+        
+        // #define CHANNEL_DATA_NAME   "HomeTemp"
+        // #define CHANNEL_SENSOR_NAME "SENSOR"
+        // #define CHANNEL_ERROR_NAME  "ERROR"
+        // #define CHANNEL_LOG_NAME    "LOG"
+
+        if ( channel <= CHANNEL_VERBOSITY ) {
+            String channel_name;
+            
+            switch (channel) {
+                case CHANNEL_DATA  : channel_name = CHANNEL_DATA_NAME  ; break;
+                case CHANNEL_SENSOR: channel_name = CHANNEL_SENSOR_NAME; break;
+                case CHANNEL_ERROR : channel_name = CHANNEL_ERROR_NAME ; break;
+                case CHANNEL_LOG   : channel_name = CHANNEL_LOG_NAME   ; break;
+            }
+            
+            if ( Particle.connected() ) {
+                Particle.publish(channel_name, msg, PRIVATE);
+                delay(500);
+            }
+        }
     #endif
 }
 
-void logger(const String& msg, const String& channel=CHANNEL_LOG) {
+void logger(const String& msg, const int& channel=CHANNEL_LOG) {
     log_serial(msg);
     log_web(msg, channel);
 }
 
+void updateNumbers();
 
 
 //
@@ -286,7 +327,7 @@ const sensorConf sensorConfList[] = {
 };
 
 
-
+#define USE_HTTP
 #ifndef USE_HTTP
     const deviceConf deviceConfList[MAX_DEVICE_CONF_LIST] = {
         #ifdef SENSOR_HTU21D
@@ -321,8 +362,8 @@ const sensorConf sensorConfList[] = {
         // { "420022001147343438323536", "switch" , SENSOR_EMPTY_NAME } // offline
     };
 
-    
 #else
+    
 
     //https://github.com/hirotakaster/TlsTcpClient
     #include "application.h"
@@ -395,65 +436,66 @@ const sensorConf sensorConfList[] = {
 
 
 // DigiCertSHA2HighAssuranceServerCA.crt
-#define CA_PEM                                                          \
-"-----BEGIN CERTIFICATE----- \r\n"                                      \
-"MIIEsTCCA5mgAwIBAgIQBOHnpNxc8vNtwCtCuF0VnzANBgkqhkiG9w0BAQsFADBs\r\n"  \
-"MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\r\n"  \
-"d3cuZGlnaWNlcnQuY29tMSswKQYDVQQDEyJEaWdpQ2VydCBIaWdoIEFzc3VyYW5j\r\n"  \
-"ZSBFViBSb290IENBMB4XDTEzMTAyMjEyMDAwMFoXDTI4MTAyMjEyMDAwMFowcDEL\r\n"  \
-"MAkGA1UEBhMCVVMxFTATBgNVBAoTDERpZ2lDZXJ0IEluYzEZMBcGA1UECxMQd3d3\r\n"  \
-"LmRpZ2ljZXJ0LmNvbTEvMC0GA1UEAxMmRGlnaUNlcnQgU0hBMiBIaWdoIEFzc3Vy\r\n"  \
-"YW5jZSBTZXJ2ZXIgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC2\r\n"  \
-"4C/CJAbIbQRf1+8KZAayfSImZRauQkCbztyfn3YHPsMwVYcZuU+UDlqUH1VWtMIC\r\n"  \
-"Kq/QmO4LQNfE0DtyyBSe75CxEamu0si4QzrZCwvV1ZX1QK/IHe1NnF9Xt4ZQaJn1\r\n"  \
-"itrSxwUfqJfJ3KSxgoQtxq2lnMcZgqaFD15EWCo3j/018QsIJzJa9buLnqS9UdAn\r\n"  \
-"4t07QjOjBSjEuyjMmqwrIw14xnvmXnG3Sj4I+4G3FhahnSMSTeXXkgisdaScus0X\r\n"  \
-"sh5ENWV/UyU50RwKmmMbGZJ0aAo3wsJSSMs5WqK24V3B3aAguCGikyZvFEohQcft\r\n"  \
-"bZvySC/zA/WiaJJTL17jAgMBAAGjggFJMIIBRTASBgNVHRMBAf8ECDAGAQH/AgEA\r\n"  \
-"MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIw\r\n"  \
-"NAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5kaWdpY2Vy\r\n"  \
-"dC5jb20wSwYDVR0fBEQwQjBAoD6gPIY6aHR0cDovL2NybDQuZGlnaWNlcnQuY29t\r\n"  \
-"L0RpZ2lDZXJ0SGlnaEFzc3VyYW5jZUVWUm9vdENBLmNybDA9BgNVHSAENjA0MDIG\r\n"  \
-"BFUdIAAwKjAoBggrBgEFBQcCARYcaHR0cHM6Ly93d3cuZGlnaWNlcnQuY29tL0NQ\r\n"  \
-"UzAdBgNVHQ4EFgQUUWj/kK8CB3U8zNllZGKiErhZcjswHwYDVR0jBBgwFoAUsT7D\r\n"  \
-"aQP4v0cB1JgmGggC72NkK8MwDQYJKoZIhvcNAQELBQADggEBABiKlYkD5m3fXPwd\r\n"  \
-"aOpKj4PWUS+Na0QWnqxj9dJubISZi6qBcYRb7TROsLd5kinMLYBq8I4g4Xmk/gNH\r\n"  \
-"E+r1hspZcX30BJZr01lYPf7TMSVcGDiEo+afgv2MW5gxTs14nhr9hctJqvIni5ly\r\n"  \
-"/D6q1UEL2tU2ob8cbkdJf17ZSHwD2f2LSaCYJkJA69aSEaRkCldUxPUd1gJea6zu\r\n"  \
-"xICaEnL6VpPX/78whQYwvwt/Tv9XBZ0k7YXDK/umdaisLRbvfXknsuvCnQsH6qqF\r\n"  \
-"0wGjIChBWUMo0oHjqvbsezt3tkBigAVBRQHvFwY+3sAzm2fTYS5yh+Rp/BIAV0Ae\r\n"  \
-"cPUeybQ=\r\n"  \
-"-----END CERTIFICATE----- "
+// #define CA_PEM                                                          \
+// "-----BEGIN CERTIFICATE----- \r\n"                                      \
+// "MIIEsTCCA5mgAwIBAgIQBOHnpNxc8vNtwCtCuF0VnzANBgkqhkiG9w0BAQsFADBs\r\n"  \
+// "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\r\n"  \
+// "d3cuZGlnaWNlcnQuY29tMSswKQYDVQQDEyJEaWdpQ2VydCBIaWdoIEFzc3VyYW5j\r\n"  \
+// "ZSBFViBSb290IENBMB4XDTEzMTAyMjEyMDAwMFoXDTI4MTAyMjEyMDAwMFowcDEL\r\n"  \
+// "MAkGA1UEBhMCVVMxFTATBgNVBAoTDERpZ2lDZXJ0IEluYzEZMBcGA1UECxMQd3d3\r\n"  \
+// "LmRpZ2ljZXJ0LmNvbTEvMC0GA1UEAxMmRGlnaUNlcnQgU0hBMiBIaWdoIEFzc3Vy\r\n"  \
+// "YW5jZSBTZXJ2ZXIgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC2\r\n"  \
+// "4C/CJAbIbQRf1+8KZAayfSImZRauQkCbztyfn3YHPsMwVYcZuU+UDlqUH1VWtMIC\r\n"  \
+// "Kq/QmO4LQNfE0DtyyBSe75CxEamu0si4QzrZCwvV1ZX1QK/IHe1NnF9Xt4ZQaJn1\r\n"  \
+// "itrSxwUfqJfJ3KSxgoQtxq2lnMcZgqaFD15EWCo3j/018QsIJzJa9buLnqS9UdAn\r\n"  \
+// "4t07QjOjBSjEuyjMmqwrIw14xnvmXnG3Sj4I+4G3FhahnSMSTeXXkgisdaScus0X\r\n"  \
+// "sh5ENWV/UyU50RwKmmMbGZJ0aAo3wsJSSMs5WqK24V3B3aAguCGikyZvFEohQcft\r\n"  \
+// "bZvySC/zA/WiaJJTL17jAgMBAAGjggFJMIIBRTASBgNVHRMBAf8ECDAGAQH/AgEA\r\n"  \
+// "MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIw\r\n"  \
+// "NAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5kaWdpY2Vy\r\n"  \
+// "dC5jb20wSwYDVR0fBEQwQjBAoD6gPIY6aHR0cDovL2NybDQuZGlnaWNlcnQuY29t\r\n"  \
+// "L0RpZ2lDZXJ0SGlnaEFzc3VyYW5jZUVWUm9vdENBLmNybDA9BgNVHSAENjA0MDIG\r\n"  \
+// "BFUdIAAwKjAoBggrBgEFBQcCARYcaHR0cHM6Ly93d3cuZGlnaWNlcnQuY29tL0NQ\r\n"  \
+// "UzAdBgNVHQ4EFgQUUWj/kK8CB3U8zNllZGKiErhZcjswHwYDVR0jBBgwFoAUsT7D\r\n"  \
+// "aQP4v0cB1JgmGggC72NkK8MwDQYJKoZIhvcNAQELBQADggEBABiKlYkD5m3fXPwd\r\n"  \
+// "aOpKj4PWUS+Na0QWnqxj9dJubISZi6qBcYRb7TROsLd5kinMLYBq8I4g4Xmk/gNH\r\n"  \
+// "E+r1hspZcX30BJZr01lYPf7TMSVcGDiEo+afgv2MW5gxTs14nhr9hctJqvIni5ly\r\n"  \
+// "/D6q1UEL2tU2ob8cbkdJf17ZSHwD2f2LSaCYJkJA69aSEaRkCldUxPUd1gJea6zu\r\n"  \
+// "xICaEnL6VpPX/78whQYwvwt/Tv9XBZ0k7YXDK/umdaisLRbvfXknsuvCnQsH6qqF\r\n"  \
+// "0wGjIChBWUMo0oHjqvbsezt3tkBigAVBRQHvFwY+3sAzm2fTYS5yh+Rp/BIAV0Ae\r\n"  \
+// "cPUeybQ=\r\n"  \
+// "-----END CERTIFICATE----- "
 
 
 // DigiCertHighAssuranceEVRootCA.crt
-//     #define CA_PEM                                                      \
-// "-----BEGIN CERTIFICATE----- \r\n"                                      \
-// "MIIDxTCCAq2gAwIBAgIQAqxcJmoLQJuPC3nyrkYldzANBgkqhkiG9w0BAQUFADBs\r\n"  \
-// "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\r\n"  \
-// "d3cuZGlnaWNlcnQuY29tMSswKQYDVQQDEyJEaWdpQ2VydCBIaWdoIEFzc3VyYW5j\r\n"  \
-// "ZSBFViBSb290IENBMB4XDTA2MTExMDAwMDAwMFoXDTMxMTExMDAwMDAwMFowbDEL\r\n"  \
-// "MAkGA1UEBhMCVVMxFTATBgNVBAoTDERpZ2lDZXJ0IEluYzEZMBcGA1UECxMQd3d3\r\n"  \
-// "LmRpZ2ljZXJ0LmNvbTErMCkGA1UEAxMiRGlnaUNlcnQgSGlnaCBBc3N1cmFuY2Ug\r\n"  \
-// "RVYgUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMbM5XPm\r\n"  \
-// "+9S75S0tMqbf5YE/yc0lSbZxKsPVlDRnogocsF9ppkCxxLeyj9CYpKlBWTrT3JTW\r\n"  \
-// "PNt0OKRKzE0lgvdKpVMSOO7zSW1xkX5jtqumX8OkhPhPYlG++MXs2ziS4wblCJEM\r\n"  \
-// "xChBVfvLWokVfnHoNb9Ncgk9vjo4UFt3MRuNs8ckRZqnrG0AFFoEt7oT61EKmEFB\r\n"  \
-// "Ik5lYYeBQVCmeVyJ3hlKV9Uu5l0cUyx+mM0aBhakaHPQNAQTXKFx01p8VdteZOE3\r\n"  \
-// "hzBWBOURtCmAEvF5OYiiAhF8J2a3iLd48soKqDirCmTCv2ZdlYTBoSUeh10aUAsg\r\n"  \
-// "EsxBu24LUTi4S8sCAwEAAaNjMGEwDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQF\r\n"  \
-// "MAMBAf8wHQYDVR0OBBYEFLE+w2kD+L9HAdSYJhoIAu9jZCvDMB8GA1UdIwQYMBaA\r\n"  \
-// "FLE+w2kD+L9HAdSYJhoIAu9jZCvDMA0GCSqGSIb3DQEBBQUAA4IBAQAcGgaX3Nec\r\n"  \
-// "nzyIZgYIVyHbIUf4KmeqvxgydkAQV8GK83rZEWWONfqe/EW1ntlMMUu4kehDLI6z\r\n"  \
-// "eM7b41N5cdblIZQB2lWHmiRk9opmzN6cN82oNLFpmyPInngiK3BD41VHMWEZ71jF\r\n"  \
-// "hS9OMPagMRYjyOfiZRYzy78aG6A9+MpeizGLYAiJLQwGXFK3xPkKmNEVX58Svnw2\r\n"  \
-// "Yzi9RKR/5CYrCsSXaQ3pjOLAEFe4yHYSkVXySGnYvCoCWw9E1CAx2/S6cCZdkGCe\r\n"  \
-// "vEsXCS+0yx5DaMkHJ8HSXPfqIbloEpw8nL+e/IBcm2PN7EeqJSdnoDfzAIJ9VNep\r\n"  \
-// "+OkuE6N36B9K\r\n"  \
-// "-----END CERTIFICATE----- "
+    #define CA_PEM                                                      \
+"-----BEGIN CERTIFICATE----- \r\n"                                      \
+"MIIDxTCCAq2gAwIBAgIQAqxcJmoLQJuPC3nyrkYldzANBgkqhkiG9w0BAQUFADBs\r\n"  \
+"MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\r\n"  \
+"d3cuZGlnaWNlcnQuY29tMSswKQYDVQQDEyJEaWdpQ2VydCBIaWdoIEFzc3VyYW5j\r\n"  \
+"ZSBFViBSb290IENBMB4XDTA2MTExMDAwMDAwMFoXDTMxMTExMDAwMDAwMFowbDEL\r\n"  \
+"MAkGA1UEBhMCVVMxFTATBgNVBAoTDERpZ2lDZXJ0IEluYzEZMBcGA1UECxMQd3d3\r\n"  \
+"LmRpZ2ljZXJ0LmNvbTErMCkGA1UEAxMiRGlnaUNlcnQgSGlnaCBBc3N1cmFuY2Ug\r\n"  \
+"RVYgUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMbM5XPm\r\n"  \
+"+9S75S0tMqbf5YE/yc0lSbZxKsPVlDRnogocsF9ppkCxxLeyj9CYpKlBWTrT3JTW\r\n"  \
+"PNt0OKRKzE0lgvdKpVMSOO7zSW1xkX5jtqumX8OkhPhPYlG++MXs2ziS4wblCJEM\r\n"  \
+"xChBVfvLWokVfnHoNb9Ncgk9vjo4UFt3MRuNs8ckRZqnrG0AFFoEt7oT61EKmEFB\r\n"  \
+"Ik5lYYeBQVCmeVyJ3hlKV9Uu5l0cUyx+mM0aBhakaHPQNAQTXKFx01p8VdteZOE3\r\n"  \
+"hzBWBOURtCmAEvF5OYiiAhF8J2a3iLd48soKqDirCmTCv2ZdlYTBoSUeh10aUAsg\r\n"  \
+"EsxBu24LUTi4S8sCAwEAAaNjMGEwDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQF\r\n"  \
+"MAMBAf8wHQYDVR0OBBYEFLE+w2kD+L9HAdSYJhoIAu9jZCvDMB8GA1UdIwQYMBaA\r\n"  \
+"FLE+w2kD+L9HAdSYJhoIAu9jZCvDMA0GCSqGSIb3DQEBBQUAA4IBAQAcGgaX3Nec\r\n"  \
+"nzyIZgYIVyHbIUf4KmeqvxgydkAQV8GK83rZEWWONfqe/EW1ntlMMUu4kehDLI6z\r\n"  \
+"eM7b41N5cdblIZQB2lWHmiRk9opmzN6cN82oNLFpmyPInngiK3BD41VHMWEZ71jF\r\n"  \
+"hS9OMPagMRYjyOfiZRYzy78aG6A9+MpeizGLYAiJLQwGXFK3xPkKmNEVX58Svnw2\r\n"  \
+"Yzi9RKR/5CYrCsSXaQ3pjOLAEFe4yHYSkVXySGnYvCoCWw9E1CAx2/S6cCZdkGCe\r\n"  \
+"vEsXCS+0yx5DaMkHJ8HSXPfqIbloEpw8nL+e/IBcm2PN7EeqJSdnoDfzAIJ9VNep\r\n"  \
+"+OkuE6N36B9K\r\n"  \
+"-----END CERTIFICATE----- "
 
     const char CaPem[] = CA_PEM;
-
+    unsigned char response[2048];
+    deviceConf deviceConfList[MAX_DEVICE_CONF_LIST];
 
     // #include <httpsclient-particle.h>
 
@@ -503,7 +545,7 @@ const sensorConf sensorConfList[] = {
         // g_bytes_received = 0;
         // if (g_https_trace) {
         //     freemem = System.freeMemory();
-        //     log_serial("free memory: " + String(freemem));
+        //     logger("free memory: " + String(freemem));
         // }
           
         // int32 rc;
@@ -520,8 +562,6 @@ const sensorConf sensorConfList[] = {
         // client.stop();
 
 
-        unsigned char response[2048];
-    
         TlsTcpClient client;
     
         // logger("setting PEM");
@@ -530,15 +570,16 @@ const sensorConf sensorConfList[] = {
         client.init(CaPem, sizeof(CaPem));
     
         const char* host = "raw.githubusercontent.com";
-        const char* url  = "sauloalazure/web-apps-node-iot-hub-data-visualization/master/public/cfg_sensors.json";
-        int         port = 443;
+        const char* url  = "sauloalazure/web-apps-node-iot-hub-data-visualization/master/public/cfg_sensors.json.min.json";
+        const char* fmt  = "GET /%s HTTP/1.0\r\nHost: %s\r\nUser-Agent: Particle\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nCache-Control: no-cache\r\nContent-Length: 0\r\n\r\n";
+        const int   port = 443;
         
         //https://raw.githubusercontent.com/sauloalazure/web-apps-node-iot-hub-data-visualization/master/public/cfg_sensors.json
         // connect HTTPS server.
         client.connect((char*)host, port);
     
         if (!client.verify()) {
-          logger("Server Certificates is INVALID.");
+          logger("Server Certificates is INVALID.", CHANNEL_ERROR);
           return false;
         }
 
@@ -546,7 +587,7 @@ const sensorConf sensorConfList[] = {
     
     
         // Send request to HTTPS web server.
-        int len = sprintf((char *)response, "GET /%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: Particle\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nContent-Length: 0\r\n\r\n", url, host);
+        int len = sprintf((char *)response, fmt, url, host);
         
             //If-None-Match: "950a78b5cce194fe1204786219db71270170a51c"
         
@@ -565,25 +606,33 @@ const sensorConf sensorConfList[] = {
         // GET HTTPS response.
         
         const char* endOfHeaders = "\r\n\r\n";
-        bool foundContent = false;
+        // bool foundContent = false;
+        // bool messageTooLong = false;
         
         memset(response, 0, sizeof(response));
-        unsigned char buf[256];
-        memset(buf, 0, sizeof(buf));
-        
+        // int loopCount = 0;
+
         while(1) {
             // read renponse.
-            memset(buf, 0, sizeof(buf));
-            int ret = client.read(buf, sizeof(buf) - 1);
+            memset(response, 0, sizeof(response));
+            int ret = client.read(response, sizeof(response) - 1);
+            
             if (ret == MBEDTLS_ERR_SSL_WANT_READ) {
                 delay(100);
-                // continue;
+                
+                // ++loopCount;
+                // if ( loopCount > 1 ) {
+                //     messageTooLong = true;
+                //     // continue;
+                //     break;
+                // }
             } else if (ret <= 0) {
                 // no more read.
                 break;
             } else if (ret > 0){
                 // logger((char *)response);
                 //TODO: CHECK TOTAL SIZE
+                //TODO: USE BUFFER
                 /*
                 strcat((char *)response, (char *)buf);
                 if ( !foundContent ) {
@@ -597,64 +646,90 @@ const sensorConf sensorConfList[] = {
                 }
                 */
                 // strcpy((char *)response, (char *)response);
+                break;
             }
         }
         
-        // logger("Response " + String((char *)response));
         
-        return false;
+        // logger("Loops: " + String(loopCount));
         
+        // if ( messageTooLong ) {
+        //     logger("Message too long: " + String((char *)response));
+        //     return false;
+        // }
         
         char* begin = strstr((char *)response, endOfHeaders);
         
         if (!begin) {
-            logger("Invalid response");
+            logger("Invalid response: " + String(begin), CHANNEL_ERROR);
             return false;
         }
         
-        logger("Valid response: " + String((char *)response));
+        // logger("Valid response: " + String(begin));
         
-        /*
+        
         
         int headerLength = (int) ((int)begin - (int)response);
-        int jsonLength   = strlen((char*)response) - headerLength;
+        int jsonLength   = strlen((char*)begin);
         
-        char header[1024];
-        strncpy( (char*)response, header         , headerLength );
-        strncpy( begin          , (char*)response, jsonLength   );
+        // char header[1024];
+        // strncpy( (char*)response, header         , headerLength );
+        // strncpy( begin          , (char*)response, jsonLength   );
         
-        header[headerLength] = '\0';   // null character manually added
-        response[jsonLength] = '\0';   // null character manually added
+        // header[headerLength] = '\0';   // null character manually added
+        // response[jsonLength] = '\0';   // null character manually added
         
-        logger("Allocate JsonBuffer");
+        // logger("headerLength       : " + String(headerLength));
+        // logger("jsonLength         : " + String(jsonLength));
+        // logger("Allocate JsonBuffer: " + String((char*)begin));
+        
         //   const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(2) + 60;
         const size_t BUFFER_SIZE = JSON_BUFFER_SIZE;
         DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);
         
-        logger("Parse JSON object");
+        // logger("Parse JSON object");
         // JsonObject& root = jsonBuffer.parseObject(response);
         
-        JsonArray& arr = jsonBuffer.parseArray(response);
+        JsonArray& arr = jsonBuffer.parseArray(begin);
 
         if (!arr.success()) {
-            logger("Parsing failed!");
+            logger("Parsing JSON failed!", CHANNEL_ERROR);
             return false;
         }
         
         int elCount = 0;
+        String deviceID;
+        String deviceName;
+        String deviceType;
+        String sensorName;
         for (JsonObject& elem : arr) {
             // JsonObject& forecast = elem["item"]["forecast"];
 
-            String deviceID   = elem["deviceID"];
-            String deviceNick = elem["deviceNick"];
-            String sensorName = elem["sensorName"];
+            deviceID   = elem["id"  ].as<char*>();
+            deviceName = elem["name"].as<char*>();
+            deviceType = elem["type"].as<char*>();
             
-            deviceConfList[elCount] = { deviceID, deviceNick, sensorName };
+            // const deviceConf deviceConfList[MAX_DEVICE_CONF_LIST] = {
+            // { "53ff6d066667574834441267", "neo"       , SENSOR_HTU21D_NAME },
             
-            ++elCount;
+            //{"id":"2e002c000a47343337373738","name":"Morph","type":"iot","desc":"1st Floor"},
+            
+            if ( deviceType == "iot" ) {
+                sensorName = elem["sensor"].as<char*>();
+                
+                deviceConfList[elCount] = { deviceID, deviceName, sensorName };
+                
+                // logger("Added sensor: " + deviceID + " " + deviceName + " " + deviceType + " " + sensorName);
+            
+                ++elCount;
+            }
         }
         
-        */
+        if ( elCount == 0 ) {
+            logger("No devices found", CHANNEL_ERROR);
+        }
+        
+        updateNumbers();
 
         // //   echo("Extract values");
         // //   echo(root["sensor"].as<char*>());
@@ -666,7 +741,7 @@ const sensorConf sensorConfList[] = {
             
         // }
 
-        // log_serial("Disconnect");
+        // logger("Disconnect");
         // client.stop();
     
 
@@ -706,6 +781,7 @@ const sensorConf sensorConfList[] = {
 const String myDeviceID = System.deviceID();
 
 
+
 //
 // LOOP VARIABLES
 //
@@ -717,6 +793,10 @@ int           numDevices     = 0;
 int           numSensors     = 0;
 char          publishString[254];
 
+void updateNumbers() {
+    numDevices     = sizeof(deviceConfList)/sizeof(deviceConfList[0]);
+    numSensors     = sizeof(sensorConfList)/sizeof(sensorConfList[0]);
+}
 
 
 
@@ -739,7 +819,7 @@ void runFuncForDevice() {
                 auto &sensor = sensorConfList[j];
                 if ( sensorName_key == sensor.sensorName ) {
                     status += " :: SENSOR FOUND";
-                    logger(status);
+                    logger(status, CHANNEL_LOG);
                     
                     sensor.func();
                     sensorFound = true;
@@ -749,7 +829,7 @@ void runFuncForDevice() {
             
             if ( !sensorFound ) {
                 status += " :: SENSOR NOT FOUND";
-                logger(status);
+                logger(status, CHANNEL_ERROR);
             }
 
             break;
@@ -777,10 +857,10 @@ void setup()
     #endif
 
 	log_serial("SERIAL DEBUG");
-
-	log_serial("registering functions");
     
     #ifdef TINKER
+    	logger("registering tinker functions");
+    	
     	//Register all the Tinker functions
     	Particle.function("digitalread" , tinkerDigitalRead );
     	Particle.function("digitalwrite", tinkerDigitalWrite);
@@ -788,7 +868,7 @@ void setup()
     	Particle.function("analogwrite" , tinkerAnalogWrite );
     #endif
 
-    log_serial("setting blue led low");
+    logger("setting blue LED low");
 
     pinMode(PIN_LIGHT, OUTPUT);
 	digitalWrite(PIN_LIGHT, LOW);
@@ -796,8 +876,7 @@ void setup()
     firstAvailable = 0;
     wifiReady      = false;
     cloudReady     = false;
-    numDevices     = sizeof(deviceConfList)/sizeof(deviceConfList[0]);
-    numSensors     = sizeof(sensorConfList)/sizeof(sensorConfList[0]);
+    updateNumbers();
 }
 
 
@@ -817,23 +896,27 @@ void loop()
 		if (millis() - firstAvailable > SEND_AFTER_MS) {
 			// After we've been up for 30 seconds, go to sleep. The delay is so the serial output gets written out before
 			// sleeping.
-// 			Serial.println("calling System.sleep(SLEEP_MODE_DEEP, 30)");
+// 			logger("calling System.sleep(SLEEP_MODE_DEEP, 30)");
 
             Particle.syncTime();
 
-	        log_serial("connected. sending signal");
+	        logger("connected. sending signal");
+
+            logger("numDevices: " + String(numDevices) + " numSensors: " + String(numSensors));
+
+			delay(100);
+
+            getConfig();
+
+			delay(500);
 
             digitalWrite(PIN_LIGHT, HIGH);
             
             runFuncForDevice();
             
-	        log_serial("signal sent. sleeping");
+	        logger("signal sent. sleeping");
 
 			digitalWrite(PIN_LIGHT, LOW);
-			
-			delay(500);
-
-            // getConfig();
 
 			delay(SLEEP_DELAY_MS);
 
@@ -842,7 +925,7 @@ void loop()
 			// The rest of the code here is not reached. SLEEP_MODE_DEEP causes the code execution to stop,
 			// and when wake up occurs, it's like a reset where you start again with setup(), all variables are
 			// cleared, etc.
-// 			Serial.println("returned from sleep, should not occur");
+// 			logger("returned from sleep, should not occur");
 		}
 	}
 	else {
@@ -905,7 +988,7 @@ void resetI2C() {
 
             Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
         } else {
-            logger(sensorName + ": NOT found. QUITTING");
+            logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
     }
 #endif
@@ -947,7 +1030,7 @@ void resetI2C() {
             
             Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
         } else {
-            logger(sensorName + ": NOT found. QUITTING");
+            logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
     }
 #endif
@@ -990,7 +1073,7 @@ void resetI2C() {
             
             Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
         } else {
-            logger(sensorName + ": NOT found. QUITTING");
+            logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
     }
 #endif
@@ -1058,7 +1141,7 @@ void resetI2C() {
                 logger(sensorName + ": sensor error. QUITTING");
             }
         } else {
-            logger(sensorName + ": NOT found. QUITTING");
+            logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
     }
 #endif
@@ -1121,10 +1204,10 @@ void resetI2C() {
                 
                 Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
             } else {
-                logger(sensorName + ": sensor error. QUITTING");
+                logger(sensorName + ": sensor error. QUITTING", CHANNEL_ERROR);
             }
         } else {
-            logger(sensorName + ": NOT found. QUITTING");
+            logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
     }
 #endif
@@ -1293,5 +1376,4 @@ void resetI2C() {
     	else return -2;
     }
 #endif
-
 
