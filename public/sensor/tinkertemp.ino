@@ -37,12 +37,13 @@
 #define CHANNEL_LOG         4
 #define CHANNEL_INFO        5
 
+#define CHANNEL_ROOT        "HomeTemp"
 #define CHANNEL_DATA_NAME   "HomeTemp"
-#define CHANNEL_SENSOR_NAME "SENSOR"
-#define CHANNEL_ERROR_NAME  "ERROR"
-#define CHANNEL_WARN_NAME   "WARN"
-#define CHANNEL_LOG_NAME    "LOG"
-#define CHANNEL_INFO_NAME   "INFO"
+#define CHANNEL_SENSOR_NAME CHANNEL_ROOT"/sensor"
+#define CHANNEL_ERROR_NAME  CHANNEL_ROOT"/log/error"
+#define CHANNEL_WARN_NAME   CHANNEL_ROOT"/log/warn"
+#define CHANNEL_LOG_NAME    CHANNEL_ROOT"/log/log"
+#define CHANNEL_INFO_NAME   CHANNEL_ROOT"/log/info"
 
 #define CHANNEL_VERBOSITY   CHANNEL_ERROR
 
