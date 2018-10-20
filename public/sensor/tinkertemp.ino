@@ -1005,7 +1005,7 @@ void resetI2C() {
         
     	    logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
 
-            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            Particle.publish(CHANNEL_DATA_NAME, publishString, PRIVATE);
         } else {
             logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
@@ -1047,7 +1047,7 @@ void resetI2C() {
 
             logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
             
-            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            Particle.publish(CHANNEL_DATA_NAME, publishString, PRIVATE);
         } else {
             logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
@@ -1090,7 +1090,7 @@ void resetI2C() {
     
             logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
             
-            Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+            Particle.publish(CHANNEL_DATA_NAME, publishString, PRIVATE);
         } else {
             logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
         }
@@ -1155,7 +1155,7 @@ void resetI2C() {
     
                 logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
                 
-                Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+                Particle.publish(CHANNEL_DATA_NAME, publishString, PRIVATE);
             } else {
                 logger(sensorName + ": sensor error. QUITTING", CHANNEL_ERROR);
             }
@@ -1221,7 +1221,7 @@ void resetI2C() {
     
                 logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
                 
-                Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+                Particle.publish(CHANNEL_DATA_NAME, publishString, PRIVATE);
             } else {
                 logger(sensorName + ": sensor error. QUITTING", CHANNEL_ERROR);
             }
@@ -1246,7 +1246,7 @@ void resetI2C() {
     
         logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
     
-        Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
+        Particle.publish(CHANNEL_DATA_NAME, publishString, PRIVATE);
     }
     
     double readMilliVolts(int pin) {
