@@ -33,12 +33,14 @@
 #define CHANNEL_DATA        0
 #define CHANNEL_SENSOR      1
 #define CHANNEL_ERROR       2
-#define CHANNEL_LOG         3
-#define CHANNEL_INFO        4
+#define CHANNEL_WARN        3
+#define CHANNEL_LOG         4
+#define CHANNEL_INFO        5
 
 #define CHANNEL_DATA_NAME   "HomeTemp"
 #define CHANNEL_SENSOR_NAME "SENSOR"
 #define CHANNEL_ERROR_NAME  "ERROR"
+#define CHANNEL_WARN_NAME   "WARN"
 #define CHANNEL_LOG_NAME    "LOG"
 #define CHANNEL_INFO_NAME   "INFO"
 
@@ -217,39 +219,49 @@ void log_serial(const String& msg, const bool& endl=true) {
     #endif
 }
 
-void log_web(const String& msg, const int& channel=CHANNEL_LOG) {
+void log_web(const String& msg, const int& channel) {
     #ifdef DEBUG_WEB
         // #define CHANNEL_VERBOSITY   2
         
         // #define CHANNEL_DATA        0
         // #define CHANNEL_SENSOR      1
         // #define CHANNEL_ERROR       2
-        // #define CHANNEL_LOG         3
+        // #define CHANNEL_WARN        3
+        // #define CHANNEL_LOG         4
+        // #define CHANNEL_INFO        5
         
         // #define CHANNEL_DATA_NAME   "HomeTemp"
         // #define CHANNEL_SENSOR_NAME "SENSOR"
         // #define CHANNEL_ERROR_NAME  "ERROR"
+        // #define CHANNEL_WARN_NAME   "WARN"
         // #define CHANNEL_LOG_NAME    "LOG"
+        // #define CHANNEL_INFO_NAME   "INFO"
 
         if ( channel <= CHANNEL_VERBOSITY ) {
-            String channel_name;
-            
-            switch (channel) {
-                case CHANNEL_DATA  : channel_name = CHANNEL_DATA_NAME  ; break;
-                case CHANNEL_SENSOR: channel_name = CHANNEL_SENSOR_NAME; break;
-                case CHANNEL_ERROR : channel_name = CHANNEL_ERROR_NAME ; break;
-                case CHANNEL_LOG   : channel_name = CHANNEL_LOG_NAME   ; break;
-            }
-            
             if ( Particle.connected() ) {
-                Particle.publish(channel_name, msg, PRIVATE);
-                delay(500);
-            }
+                String channel_name;
+                bool hasChannel = false;
+                
+                switch (channel) {
+                    case CHANNEL_DATA  : channel_name = CHANNEL_DATA_NAME  ; hasChannel = true; break;
+                    case CHANNEL_SENSOR: channel_name = CHANNEL_SENSOR_NAME; hasChannel = true; break;
+                    case CHANNEL_ERROR : channel_name = CHANNEL_ERROR_NAME ; hasChannel = true; break;
+                    case CHANNEL_WARN  : channel_name = CHANNEL_WARN_NAME  ; hasChannel = true; break;
+                    case CHANNEL_LOG   : channel_name = CHANNEL_LOG_NAME   ; hasChannel = true; break;
+                    case CHANNEL_INFO  : channel_name = CHANNEL_INFO_NAME  ; hasChannel = true; break;
+                    default: break;
+                }
+                
+                if ( hasChannel ) {
+                    Particle.publish(channel_name, msg, PRIVATE);
+                    delay(500);
+                }
+            } 
         }
     #endif
 }
 
-void logger(const String& msg, const int& channel=CHANNEL_LOG) {
+void logger(const String& msg, const int& channel) {
     log_serial(msg);
     log_web(msg, channel);
 }
@@ -587,7 +599,7 @@ const sensorConf sensorConfList[] = {
     
     
         // Send request to HTTPS web server.
-        int len = sprintf((char *)response, fmt, url, host);
+        const int len = sprintf((char *)response, fmt, url, host);
         
             //If-None-Match: "950a78b5cce194fe1204786219db71270170a51c"
         
@@ -802,27 +814,34 @@ void updateNumbers() {
 
 void runFuncForDevice() {
     bool deviceFound = false;
+    bool sensorFound = false;
+    
+    String deviceID_key;
+    String deviceNick_key;
+    String sensorName_key;
     
     for ( int i = 0; i < numDevices; ++i ) {
         auto  &deviceConf     = deviceConfList[i];
-        String deviceID_key   = deviceConf.deviceID;
-        String deviceNick_key = deviceConf.deviceNick;
-        String sensorName_key = deviceConf.sensorName;
+               deviceID_key   = deviceConf.deviceID;
+               deviceNick_key = deviceConf.deviceNick;
+               sensorName_key = deviceConf.sensorName;
 
         if ( deviceID_key == myDeviceID ) {
-            deviceFound      = true;
-            bool sensorFound = false;
+            deviceFound = true;
+            sensorFound = false;
             
             String status = "Machine identified :: Id: " + deviceID_key + " Nick: " + deviceNick_key + " Sensor: " + sensorName_key;
 
             for ( int j = 0; j < numSensors; ++j ) {
                 auto &sensor = sensorConfList[j];
+                
                 if ( sensorName_key == sensor.sensorName ) {
                     status += " :: SENSOR FOUND";
                     logger(status, CHANNEL_LOG);
                     
                     sensor.func();
                     sensorFound = true;
+                    
                     break;
                 }
             }
@@ -840,7 +859,7 @@ void runFuncForDevice() {
     if ( ! deviceFound ) {
         String status = "Machine NOT identified :: Id: " + myDeviceID;
         
-        logger(status);
+        logger(status, CHANNEL_ERROR);
     }
 }
 
@@ -859,7 +878,7 @@ void setup()
 	log_serial("SERIAL DEBUG");
     
     #ifdef TINKER
-    	logger("registering tinker functions");
+    	logger("registering tinker functions", CHANNEL_INFO);
     	
     	//Register all the Tinker functions
     	Particle.function("digitalread" , tinkerDigitalRead );
@@ -868,7 +887,7 @@ void setup()
     	Particle.function("analogwrite" , tinkerAnalogWrite );
     #endif
 
-    logger("setting blue LED low");
+    logger("setting blue LED low", CHANNEL_INFO);
 
     pinMode(PIN_LIGHT, OUTPUT);
 	digitalWrite(PIN_LIGHT, LOW);
@@ -900,9 +919,9 @@ void loop()
 
             Particle.syncTime();
 
-	        logger("connected. sending signal");
+	        logger("connected. sending signal", CHANNEL_INFO);
 
-            logger("numDevices: " + String(numDevices) + " numSensors: " + String(numSensors));
+            logger("numDevices: " + String(numDevices) + " numSensors: " + String(numSensors), CHANNEL_LOG);
 
 			delay(100);
 
@@ -914,7 +933,7 @@ void loop()
             
             runFuncForDevice();
             
-	        logger("signal sent. sleeping");
+	        logger("signal sent. sleeping", CHANNEL_INFO);
 
 			digitalWrite(PIN_LIGHT, LOW);
 
@@ -949,7 +968,7 @@ void resetI2C() {
 //
 #ifdef SENSOR_HTU21D
     void checkSensorHTU21D() {
-        String sensorName = "HTU21D";
+        const String sensorName = SENSOR_HTU21D_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
@@ -967,7 +986,7 @@ void resetI2C() {
         bool          sensorSuccess   = true;
 
     	while(! htu.begin()) {
-    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_SI7021_WAIT_BEGIN) + "s");
+    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_SI7021_WAIT_BEGIN) + "s", CHANNEL_LOG);
 
     	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
     	        sensorSuccess   = false;
@@ -978,13 +997,13 @@ void resetI2C() {
     	}
 
         if ( sensorSuccess ) {
-            logger(sensorName + ": found. continuing");
+            logger(sensorName + ": found. continuing", CHANNEL_INFO);
             
     	    delay(SENSOR_HTU21D_WAIT_BEGIN);
 
-            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"HTU21D\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),VERSION);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),sensorName,VERSION);
         
-    	    logger(sensorName + ": sending :: " + String(publishString));
+    	    logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
 
             Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
         } else {
@@ -997,7 +1016,7 @@ void resetI2C() {
 
 #ifdef SENSOR_SI7021_ADAFRUIT
     void checkSensorSI7021() {
-        String sensorName = "SI7021";
+        const String sensorName = SENSOR_SI7021_ADAFRUIT_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
@@ -1009,7 +1028,7 @@ void resetI2C() {
         bool          sensorSuccess   = true;
 
     	while(! si7021.begin()){
-    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_SI7021_WAIT_BEGIN) + "s");
+    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_SI7021_WAIT_BEGIN) + "s", CHANNEL_LOG);
     	    
     	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
     	        sensorSuccess   = false;
@@ -1020,13 +1039,13 @@ void resetI2C() {
     	}
 
         if ( sensorSuccess ) {
-        	logger(sensorName + ": found. continuing");
+        	logger(sensorName + ": found. continuing", CHANNEL_INFO);
     
     	    delay(SENSOR_SI7021_WAIT_BEGIN);
 
-            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"SI7021\",\"v\":\"%s\"}",si7021.readTemperature(),si7021.readHumidity(),VERSION);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",si7021.readTemperature(),si7021.readHumidity(),sensorName,VERSION);
 
-            logger(sensorName + ": sending :: " + String(publishString));
+            logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
             
             Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
         } else {
@@ -1039,7 +1058,7 @@ void resetI2C() {
 
 #ifdef SENSOR_BMP085_ADAFRUIT
     void checkSensorBMP085() {
-        String sensorName = "BMP085";
+        const String sensorName = SENSOR_BMP085_ADAFRUIT_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
@@ -1051,7 +1070,7 @@ void resetI2C() {
         bool          sensorSuccess   = true;
 
     	while(! bmp085.begin()){
-            logger(sensorName + ": NOT found. waiting " + String(SENSOR_BMP085_WAIT_BEGIN) + "s");
+            logger(sensorName + ": NOT found. waiting " + String(SENSOR_BMP085_WAIT_BEGIN) + "s", CHANNEL_LOG);
 
     	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
     	        sensorSuccess   = false;
@@ -1063,13 +1082,13 @@ void resetI2C() {
 
 
         if ( sensorSuccess ) {
-        	logger(sensorName + ": found. continuing");
+        	logger(sensorName + ": found. continuing", CHANNEL_INFO);
     
     	    delay(SENSOR_BMP085_WAIT_BEGIN);
 
-            sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"BMP085\",\"v\":\"%s\"}",bmp085.readTemperature(),bmp085.readPressure(),VERSION);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"%s\",\"v\":\"%s\"}",bmp085.readTemperature(),bmp085.readPressure(),sensorName,VERSION);
     
-            logger(sensorName + ": sending :: " + String(publishString));
+            logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
             
             Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
         } else {
@@ -1082,7 +1101,7 @@ void resetI2C() {
 
 #ifdef SENSOR_BMP183_ADAFRUIT
     void checkSensorBMP183() {
-        String sensorName = "BMP183";
+        const String sensorName = SENSOR_BMP183_ADAFRUIT_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
@@ -1094,7 +1113,7 @@ void resetI2C() {
         bool          sensorSuccess   = true;
 
     	while(! bmp183.begin()){
-    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_BMP183_WAIT_BEGIN) + "s");
+    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_BMP183_WAIT_BEGIN) + "s", CHANNEL_LOG);
         
     	    delay(SENSOR_BMP183_WAIT_BEGIN);
 
@@ -1106,7 +1125,7 @@ void resetI2C() {
 
 
         if ( sensorSuccess ) {
-            logger(sensorName + ": found. continuing");
+            logger(sensorName + ": found. continuing", CHANNEL_INFO);
 
     	    delay(SENSOR_BMP183_WAIT_BEGIN);
 
@@ -1132,13 +1151,13 @@ void resetI2C() {
             if (event.pressure)
             {
                 int32_t pressure = (int32_t)(bmp183.getPressure());
-                sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"BMP183\",\"v\":\"%s\"}",bmp183.getTemperature(),pressure,VERSION);
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"%s\",\"v\":\"%s\"}",bmp183.getTemperature(),pressure,sensorName,VERSION);
     
-                logger(sensorName + ": sending :: " + String(publishString));
+                logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
                 
                 Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
             } else {
-                logger(sensorName + ": sensor error. QUITTING");
+                logger(sensorName + ": sensor error. QUITTING", CHANNEL_ERROR);
             }
         } else {
             logger(sensorName + ": NOT found. QUITTING", CHANNEL_ERROR);
@@ -1151,7 +1170,7 @@ void resetI2C() {
     void checkSensorBME280() {
         // https://github.com/adafruit/Adafruit_BME280_Library
 
-        String sensorName = "BME280";
+        const String sensorName = SENSOR_BME280_ADAFRUIT_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
@@ -1163,7 +1182,7 @@ void resetI2C() {
         bool          sensorSuccess   = true;
 
     	while(! bme280.begin(BME280_ADDRESS)){
-    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_BME280_WAIT_BEGIN) + "s");
+    	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_BME280_WAIT_BEGIN) + "s", CHANNEL_LOG);
         
     	    delay(SENSOR_BME280_WAIT_BEGIN);
 
@@ -1175,7 +1194,7 @@ void resetI2C() {
 
 
         if ( sensorSuccess ) {
-        	logger(sensorName + ": found. continuing");
+        	logger(sensorName + ": found. continuing", CHANNEL_INFO);
 
     	    delay(SENSOR_BME280_WAIT_BEGIN);
 
@@ -1198,9 +1217,9 @@ void resetI2C() {
             if (pressure)
             {
                 // int32_t pressureI = (int32_t)(pressure);
-                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%0.0f,\"s\":\"BME280\",\"v\":\"%s\"}",temperature,humidity,pressure,VERSION);
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%0.0f,\"s\":\"%s\",\"v\":\"%s\"}",temperature,humidity,pressure,sensorName,VERSION);
     
-                logger(sensorName + ": sending :: " + String(publishString));
+                logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
                 
                 Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
             } else {
@@ -1216,16 +1235,16 @@ void resetI2C() {
 
 #ifdef SENSOR_TMP36
     void checkSensorTMP36() {
-        String sensorName = "TMP36";
+        String sensorName = SENSOR_TMP36_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
         pinMode(SENSOR_TMP36_PIN, INPUT);
         analogRead(SENSOR_TMP36_PIN);
     
-        sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":null,\"s\":\"TMP36\",\"v\":\"%s\"}",TMP36GetCentigrade(SENSOR_TMP36_PIN),VERSION);
+        sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",TMP36GetCentigrade(SENSOR_TMP36_PIN),sensorName,VERSION);
     
-        logger(sensorName + ": sending :: " + String(publishString));
+        logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
     
         Particle.publish(CHANNEL_DATA, publishString, PRIVATE);
     }
