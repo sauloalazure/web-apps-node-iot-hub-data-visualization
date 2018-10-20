@@ -3,7 +3,7 @@
 //
 // DEFINE VERSION AND DEBUG
 //
-#define VERSION "2018_10_19_0000"
+#define VERSION "2018_10_20_0001"
 // #define DEBUG_SERIAL
 #define DEBUG_WEB
 
@@ -47,10 +47,12 @@
 
 #define CHANNEL_VERBOSITY   CHANNEL_ERROR
 
-#define PIN_LIGHT              D7
+#define PIN_LIGHT                    D7
 
-#define MAX_DEVICE_CONF_LIST   20
-#define JSON_BUFFER_SIZE     1024
+#define REPONSE_BUFFER_SIZE        2048
+#define MAX_DEVICE_CONF_LIST         20
+#define JSON_BUFFER_SIZE           1024
+#define PUBLISH_STRING_BUFFER_SIZE  254
 
 #ifdef DEBUG_SERIAL
     #define DEBUG_SERIAL_SPEED 115200
@@ -85,6 +87,13 @@
 //
 // LOAD LIBRARIES FOR MODULES TO LOAD
 //
+//
+// INITIALIZE VARIABLES FOR LOADED MODULES
+// DECLARE FUNCTIONS TO READ DATA
+//
+// standard dictated that they should be placed after all libraries are loaded
+//
+
 #ifdef SENSOR_HTU21D_ADAFRUIT
     #define SENSOR_HTU21D
     #include <Wire.h>
@@ -99,18 +108,21 @@
 #ifdef SENSOR_HTU21D
     #define SENSOR_HTU21D_WAIT_BEGIN 5000
     #define SENSOR_HTU21D_NAME       "HTU21D"
+    void checkSensorHTU21D();
 #endif
 
 #ifdef SENSOR_SI7021_ADAFRUIT
     #include <Adafruit_Si7021.h>
     #define SENSOR_SI7021_WAIT_BEGIN    5000
     #define SENSOR_SI7021_ADAFRUIT_NAME "SI7021_adafruit"
+    void checkSensorSI7021();
 #endif
 
 #ifdef SENSOR_BMP085_ADAFRUIT
     #include <Adafruit_BMP085.h>
     #define SENSOR_BMP085_WAIT_BEGIN    5000
     #define SENSOR_BMP085_ADAFRUIT_NAME "BMP085_adafruit"
+    void checkSensorBMP085();
 #endif
 
 #ifdef SENSOR_BMP183_ADAFRUIT
@@ -121,6 +133,11 @@
     #define BMP183_CS                   A2
     #define SENSOR_BMP183_WAIT_BEGIN    5000
     #define SENSOR_BMP183_ADAFRUIT_NAME "BMP183_adafruit"
+    // For hardware SPI:
+    // Connect SCK to SPI Clock, SDO to SPI MISO, and SDI to SPI MOSI
+    // See  http://arduino.cc/en/Reference/SPI for your Arduino's SPI pins!
+    // On UNO, Clock is #13, MISO is #12 and MOSI is #11
+    void checkSensorBMP183();
 #endif
 
 #ifdef SENSOR_BME280_ADAFRUIT
@@ -137,6 +154,7 @@
     #define SEALEVELPRESSURE_HPA        (1013.25)
     #define SENSOR_BME280_WAIT_BEGIN    5000
     #define SENSOR_BME280_ADAFRUIT_NAME "BME280_adafruit"
+    void checkSensorBME280();
 #endif
 
 #ifdef SENSOR_TMP36
@@ -148,56 +166,12 @@
     #define SENSOR_TMP36_SLOPE       0.1128 // slope for pairs (mV,Tc) = (0,-50), (595.5311,18), (1550,125). 
                                             // second value is emprirical. third value leads to R-squared of zero
     #define SENSOR_TMP36_NAME         "TMP36"
-#endif
-
-#define SENSOR_EMPTY_NAME "EMPTY"
-
-
-
-
-
-//
-// INITIALIZE VARIABLES FOR LOADED MODULES
-// DECLARE FUNCTIONS TO READ DATA
-//
-// standard dictated that they should be placed after all libraries are loaded
-//
-
-
-#ifdef SENSOR_HTU21D
-    void checkSensorHTU21D();
-#endif    
-
-
-#ifdef SENSOR_SI7021_ADAFRUIT
-    void checkSensorSI7021();
-#endif
-
-
-#ifdef SENSOR_BMP085_ADAFRUIT
-    void checkSensorBMP085();
-#endif
-
-
-#ifdef SENSOR_BMP183_ADAFRUIT
-    // For hardware SPI:
-    // Connect SCK to SPI Clock, SDO to SPI MISO, and SDI to SPI MOSI
-    // See  http://arduino.cc/en/Reference/SPI for your Arduino's SPI pins!
-    // On UNO, Clock is #13, MISO is #12 and MOSI is #11
-    void checkSensorBMP183();
-#endif
-
-
-#ifdef SENSOR_BME280_ADAFRUIT
-    void checkSensorBME280();
-#endif
-
-
-#ifdef SENSOR_TMP36
     void   checkSensorTMP36();
     double readMilliVolts(int pin);
     double TMP36GetCentigrade(int pin);
 #endif
+
+#define SENSOR_EMPTY_NAME "EMPTY"
 
 
 #ifdef TINKER
@@ -206,7 +180,22 @@
     int tinkerDigitalWrite(String command);
     int tinkerAnalogRead(String pin);
     int tinkerAnalogWrite(String command);
+
+    int tinkerSendAfterMsSet    (String ms);
+	int tinkerSendAfterMsGet    (String command);
+
+	int tinkerSleepDelayMsSet   (String ms);
+	int tinkerSleepDelayMsGet   (String command);
+
+	int tinkerTrySensorForMsSet (String ms);
+	int tinkerTrySensorForMsGet (String command);
+
+	int tinkerSleepForMsSet     (String ms);
+	int tinkerSleepForMsGet     (String command);
 #endif
+
+
+
 
 
 
@@ -268,6 +257,16 @@ void logger(const String& msg, const int& channel) {
 }
 
 void updateNumbers();
+
+
+int send_after_ms     = SEND_AFTER_MS;     // 10000 // run after N milli seconds connected to the cloud
+int sleep_delay_ms    = SLEEP_DELAY_MS;    // 30000 // after sending the message, wait N milli seconds before going to sleep
+int try_sensor_for_ms = TRY_SENSOR_FOR_MS; // 10000 // try to connect to sensor for N milli seconds before giving up
+int sleep_for_s       = SLEEP_FOR_S;       //    60 // sleep for N SECONDS
+
+
+
+
 
 
 //
@@ -376,8 +375,6 @@ const sensorConf sensorConfList[] = {
     };
 
 #else
-    
-
     //https://github.com/hirotakaster/TlsTcpClient
     #include "application.h"
     #include "TlsTcpClient.h"
@@ -506,9 +503,11 @@ const sensorConf sensorConfList[] = {
 "+OkuE6N36B9K\r\n"  \
 "-----END CERTIFICATE----- "
 
+
+
     const char CaPem[] = CA_PEM;
-    unsigned char response[2048];
-    deviceConf deviceConfList[MAX_DEVICE_CONF_LIST];
+    unsigned char response[REPONSE_BUFFER_SIZE];
+    deviceConf    deviceConfList[MAX_DEVICE_CONF_LIST];
 
     // #include <httpsclient-particle.h>
 
@@ -628,7 +627,7 @@ const sensorConf sensorConfList[] = {
         while(1) {
             // read renponse.
             memset(response, 0, sizeof(response));
-            int ret = client.read(response, sizeof(response) - 1);
+            const int ret = client.read(response, sizeof(response) - 1);
             
             if (ret == MBEDTLS_ERR_SSL_WANT_READ) {
                 delay(100);
@@ -682,8 +681,8 @@ const sensorConf sensorConfList[] = {
         
         
         
-        int headerLength = (int) ((int)begin - (int)response);
-        int jsonLength   = strlen((char*)begin);
+        // int headerLength = (int) ((int)begin - (int)response);
+        // int jsonLength   = strlen((char*)begin);
         
         // char header[1024];
         // strncpy( (char*)response, header         , headerLength );
@@ -804,7 +803,8 @@ bool          cloudReady     = false;
 // const int numDevices = 5;
 int           numDevices     = 0;
 int           numSensors     = 0;
-char          publishString[254];
+char          publishString[PUBLISH_STRING_BUFFER_SIZE];
+
 
 void updateNumbers() {
     numDevices     = sizeof(deviceConfList)/sizeof(deviceConfList[0]);
@@ -820,6 +820,8 @@ void runFuncForDevice() {
     String deviceID_key;
     String deviceNick_key;
     String sensorName_key;
+    String status;
+    status.reserve(100);
     
     for ( int i = 0; i < numDevices; ++i ) {
         auto  &deviceConf     = deviceConfList[i];
@@ -831,8 +833,8 @@ void runFuncForDevice() {
             deviceFound = true;
             sensorFound = false;
             
-            String status = "Machine identified :: Id: " + deviceID_key + " Nick: " + deviceNick_key + " Sensor: " + sensorName_key;
-
+            status = "Machine identified :: Id: " + deviceID_key + " Nick: " + deviceNick_key + " Sensor: " + sensorName_key;
+            
             for ( int j = 0; j < numSensors; ++j ) {
                 auto &sensor = sensorConfList[j];
                 
@@ -858,7 +860,7 @@ void runFuncForDevice() {
     
     
     if ( ! deviceFound ) {
-        String status = "Machine NOT identified :: Id: " + myDeviceID;
+        status = "Machine NOT identified :: Id: " + myDeviceID;
         
         logger(status, CHANNEL_ERROR);
     }
@@ -882,10 +884,22 @@ void setup()
     	logger("registering tinker functions", CHANNEL_INFO);
     	
     	//Register all the Tinker functions
-    	Particle.function("digitalread" , tinkerDigitalRead );
-    	Particle.function("digitalwrite", tinkerDigitalWrite);
-    	Particle.function("analogread"  , tinkerAnalogRead  );
-    	Particle.function("analogwrite" , tinkerAnalogWrite );
+    	Particle.function("digitalread"      , tinkerDigitalRead       );
+    	Particle.function("digitalwrite"     , tinkerDigitalWrite      );
+    	Particle.function("analogread"       , tinkerAnalogRead        );
+    	Particle.function("analogwrite"      , tinkerAnalogWrite       );
+
+    	Particle.function("sendaftermsset"   , tinkerSendAfterMsSet    );
+    	Particle.function("sendaftermsget"   , tinkerSendAfterMsGet    );
+
+    	Particle.function("sleepdelaymsset"  , tinkerSleepDelayMsSet   );
+    	Particle.function("sleepdelaymsget"  , tinkerSleepDelayMsGet   );
+
+    	Particle.function("trysensorformsset", tinkerTrySensorForMsSet );
+    	Particle.function("trysensorformsget", tinkerTrySensorForMsGet );
+
+    	Particle.function("sleepformsset"    , tinkerSleepForMsSet     );
+    	Particle.function("sleepformsget"    , tinkerSleepForMsGet     );
     #endif
 
     logger("setting blue LED low", CHANNEL_INFO);
@@ -913,7 +927,7 @@ void loop()
 		if (firstAvailable == 0) {
 			firstAvailable = millis();
 		}
-		if (millis() - firstAvailable > SEND_AFTER_MS) {
+		if (millis() - firstAvailable > send_after_ms) {
 			// After we've been up for 30 seconds, go to sleep. The delay is so the serial output gets written out before
 			// sleeping.
 // 			logger("calling System.sleep(SLEEP_MODE_DEEP, 30)");
@@ -938,9 +952,9 @@ void loop()
 
 			digitalWrite(PIN_LIGHT, LOW);
 
-			delay(SLEEP_DELAY_MS);
+			delay(sleep_delay_ms);
 
-			System.sleep(SLEEP_MODE_DEEP, SLEEP_FOR_S);
+			System.sleep(SLEEP_MODE_DEEP, sleep_for_s);
 
 			// The rest of the code here is not reached. SLEEP_MODE_DEEP causes the code execution to stop,
 			// and when wake up occurs, it's like a reset where you start again with setup(), all variables are
@@ -957,11 +971,15 @@ void loop()
 
 void resetI2C() {
     // https://github.com/particle-iot/firmware/issues/598
+
+    pinMode(SDA, INPUT);
+    pinMode(SCL, INPUT);
+    
+    digitalWrite(SDA, LOW);
+    digitalWrite(SCL, LOW);
+
     Wire.reset();
-    // pinMode(SDA, INPUT);
-    // pinMode(SCL, INPUT);
-    // digitalWrite(SDA, LOW);
-    // digitalWrite(SCL, LOW);
+    
 }
 
 //
@@ -983,13 +1001,13 @@ void resetI2C() {
             HTU21DF          htu = HTU21DF();
         #endif
 
-        unsigned long sensorStartTime = millis();
-        bool          sensorSuccess   = true;
+        const unsigned long sensorStartTime = millis();
+        bool                sensorSuccess   = true;
 
     	while(! htu.begin()) {
     	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_SI7021_WAIT_BEGIN) + "s", CHANNEL_LOG);
 
-    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	    if (millis() - sensorStartTime > try_sensor_for_ms) {
     	        sensorSuccess   = false;
     	        break;   
     	    }
@@ -1002,7 +1020,7 @@ void resetI2C() {
             
     	    delay(SENSOR_HTU21D_WAIT_BEGIN);
 
-            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),sensorName,VERSION);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",htu.readTemperature(),htu.readHumidity(),sensorName.c_str(),VERSION);
         
     	    logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
 
@@ -1025,13 +1043,13 @@ void resetI2C() {
 
         Adafruit_Si7021 si7021 = Adafruit_Si7021();
 
-        unsigned long sensorStartTime = millis();
-        bool          sensorSuccess   = true;
+        const unsigned long sensorStartTime = millis();
+        bool                sensorSuccess   = true;
 
     	while(! si7021.begin()){
     	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_SI7021_WAIT_BEGIN) + "s", CHANNEL_LOG);
     	    
-    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	    if (millis() - sensorStartTime > try_sensor_for_ms) {
     	        sensorSuccess   = false;
     	        break;   
     	    }
@@ -1044,7 +1062,7 @@ void resetI2C() {
     
     	    delay(SENSOR_SI7021_WAIT_BEGIN);
 
-            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",si7021.readTemperature(),si7021.readHumidity(),sensorName,VERSION);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",si7021.readTemperature(),si7021.readHumidity(),sensorName.c_str(),VERSION);
 
             logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
             
@@ -1067,13 +1085,13 @@ void resetI2C() {
         
         Adafruit_BMP085 bmp085 = Adafruit_BMP085();
 
-        unsigned long sensorStartTime = millis();
-        bool          sensorSuccess   = true;
+        const unsigned long sensorStartTime = millis();
+        bool                sensorSuccess   = true;
 
     	while(! bmp085.begin()){
             logger(sensorName + ": NOT found. waiting " + String(SENSOR_BMP085_WAIT_BEGIN) + "s", CHANNEL_LOG);
 
-    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	    if (millis() - sensorStartTime > try_sensor_for_ms) {
     	        sensorSuccess   = false;
     	        break;   
     	    }
@@ -1087,7 +1105,7 @@ void resetI2C() {
     
     	    delay(SENSOR_BMP085_WAIT_BEGIN);
 
-            sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"%s\",\"v\":\"%s\"}",bmp085.readTemperature(),bmp085.readPressure(),sensorName,VERSION);
+            sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"%s\",\"v\":\"%s\"}",bmp085.readTemperature(),bmp085.readPressure(),sensorName.c_str(),VERSION);
     
             logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
             
@@ -1110,15 +1128,15 @@ void resetI2C() {
 
         Adafruit_BMP183_Unified bmp183 = Adafruit_BMP183_Unified(BMP183_CS);  // use hardware SPI
 
-        unsigned long sensorStartTime = millis();
-        bool          sensorSuccess   = true;
+        const unsigned long sensorStartTime = millis();
+        bool                sensorSuccess   = true;
 
     	while(! bmp183.begin()){
     	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_BMP183_WAIT_BEGIN) + "s", CHANNEL_LOG);
         
     	    delay(SENSOR_BMP183_WAIT_BEGIN);
 
-    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	    if (millis() - sensorStartTime > try_sensor_for_ms) {
     	        sensorSuccess   = false;
     	        break;   
     	    }
@@ -1151,8 +1169,8 @@ void resetI2C() {
             /* Display the results (barometric pressure is measure in hPa) */
             if (event.pressure)
             {
-                int32_t pressure = (int32_t)(bmp183.getPressure());
-                sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"%s\",\"v\":\"%s\"}",bmp183.getTemperature(),pressure,sensorName,VERSION);
+                const int32_t pressure = (int32_t)(bmp183.getPressure());
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":%ld,\"s\":\"%s\",\"v\":\"%s\"}",bmp183.getTemperature(),pressure,sensorName.c_str(),VERSION);
     
                 logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
                 
@@ -1179,15 +1197,15 @@ void resetI2C() {
 
         Adafruit_BME280 bme280 = Adafruit_BME280(); // I2C
 
-        unsigned long sensorStartTime = millis();
-        bool          sensorSuccess   = true;
+        const unsigned long sensorStartTime = millis();
+        bool                sensorSuccess   = true;
 
     	while(! bme280.begin(BME280_ADDRESS)){
     	    logger(sensorName + ": NOT found. waiting " + String(SENSOR_BME280_WAIT_BEGIN) + "s", CHANNEL_LOG);
         
     	    delay(SENSOR_BME280_WAIT_BEGIN);
 
-    	    if (millis() - sensorStartTime > TRY_SENSOR_FOR_MS) {
+    	    if (millis() - sensorStartTime > try_sensor_for_ms) {
     	        sensorSuccess   = false;
     	        break;   
     	    }
@@ -1199,11 +1217,11 @@ void resetI2C() {
 
     	    delay(SENSOR_BME280_WAIT_BEGIN);
 
-            float temperature = bme280.readTemperature();
+            const float temperature = bme280.readTemperature();
             delay(10);
-            float pressure    = bme280.readPressure();
+            const float pressure    = bme280.readPressure();
             delay(10);
-            float humidity    = bme280.readHumidity();
+            const float humidity    = bme280.readHumidity();
             // float altitude    = bme280.readAltitude(SEALEVELPRESSURE_HPA);
 
             log_serial("Temperature = " + String(temperature) + " *C");
@@ -1218,7 +1236,7 @@ void resetI2C() {
             if (pressure)
             {
                 // int32_t pressureI = (int32_t)(pressure);
-                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%0.0f,\"s\":\"%s\",\"v\":\"%s\"}",temperature,humidity,pressure,sensorName,VERSION);
+                sprintf(publishString,"{\"t\":%0.1f,\"h\":%0.1f,\"p\":%0.0f,\"s\":\"%s\",\"v\":\"%s\"}",temperature,humidity,pressure,sensorName.c_str(),VERSION);
     
                 logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
                 
@@ -1236,14 +1254,16 @@ void resetI2C() {
 
 #ifdef SENSOR_TMP36
     void checkSensorTMP36() {
-        String sensorName = SENSOR_TMP36_NAME;
+        const String sensorName = SENSOR_TMP36_NAME;
         
         logger(sensorName + ": setting up", CHANNEL_SENSOR);
 
         pinMode(SENSOR_TMP36_PIN, INPUT);
         analogRead(SENSOR_TMP36_PIN);
     
-        sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",TMP36GetCentigrade(SENSOR_TMP36_PIN),sensorName,VERSION);
+        const double temp = TMP36GetCentigrade(SENSOR_TMP36_PIN);
+    
+        sprintf(publishString,"{\"t\":%0.1f,\"h\":null,\"p\":null,\"s\":\"%s\",\"v\":\"%s\"}",temp,sensorName.c_str(),VERSION);
     
         logger(sensorName + ": sending :: " + String(publishString), CHANNEL_INFO);
     
@@ -1395,5 +1415,88 @@ void resetI2C() {
     	}
     	else return -2;
     }
+
+    //https://www.systutorials.com/131/convert-string-to-int-and-reverse/
+    //https://www.arduino.cc/reference/en/language/variables/data-types/string/functions/toint/
+    int tinkerSendAfterMsSet    (String ms)
+    {
+        // int number = std::atoi (ms.c_str());
+        
+        // if (errno == ERANGE) {
+        //     return -1;
+        // } else if ( number == 0 ) {
+        //     return -2;
+        // }
+        
+        int number = ms.toInt();
+        
+        if ( number == 0 ) {
+            return -1;
+        }
+        
+        send_after_ms = number;
+        
+        return 0;
+    }
+    
+	int tinkerSendAfterMsGet    (String command)
+	{
+	    return send_after_ms;
+	}
+
+	int tinkerSleepDelayMsSet   (String ms)
+	{
+	    int number = ms.toInt();
+        
+        if ( number == 0 ) {
+            return -1;
+        }
+        
+        sleep_delay_ms = number;
+        
+	    return 0;
+	}
+	
+	int tinkerSleepDelayMsGet   (String command)
+	{
+	    return sleep_delay_ms;
+	}
+
+	int tinkerTrySensorForMsSet (String ms)
+	{
+	    int number = ms.toInt();
+        
+        if ( number == 0 ) {
+            return -1;
+        }
+        
+        try_sensor_for_ms = number;
+        
+	    return 0;
+	}
+	
+	int tinkerTrySensorForMsGet (String command)
+	{
+	    return try_sensor_for_ms;
+	}
+
+	int tinkerSleepForMsSet     (String ms)
+	{
+	    int number = ms.toInt();
+        
+        if ( number == 0 ) {
+            return -1;
+        }
+        
+        sleep_for_s = number;
+        
+	    return 0;
+	}
+	
+	int tinkerSleepForMsGet     (String command)
+	{
+	    return sleep_for_s;
+	}
+
 #endif
 
