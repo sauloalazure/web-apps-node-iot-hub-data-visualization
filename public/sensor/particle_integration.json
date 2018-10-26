@@ -1,0 +1,24 @@
+{
+    "event": "HomeTemp",
+    "url": "https://red.home.aflitos.net:886/nodes/api/HomeTemp",
+    "requestType": "POST",
+    "noDefaults": true,
+    "rejectUnauthorized": true,
+    "headers": {
+        "X-Auth-Token": ""
+    },
+    "json": {
+        "event": "{{PARTICLE_EVENT_NAME}}",
+        "temp": "{{t}}",
+        "humi": "{{h}}",
+        "pres": "{{p}}",
+        "sens": "{{s}}",
+        "vers": "{{v}}",
+        "device_id": "{{PARTICLE_DEVICE_ID}}",
+        "published_at": "{{PARTICLE_PUBLISHED_AT}}"
+    },
+    "auth": {
+        "username": "",
+        "password": ""
+    }
+}
