@@ -5,10 +5,22 @@ STARTUP(System.enableFeature(FEATURE_RETAINED_MEMORY));
 
 #include <cstring>
 
+// 
+// I2C WIRING
+//
+// GND GND
+// SDA D0
+// SCL D1
+// VcC D2
+// CSB -
+// SDO -
+//
+
+
 //
 // DEFINE VERSION AND DEBUG
 //
-#define VERSION "2018_10_21_0001"
+#define VERSION "2018_10_26_0001"
 // #define DEBUG_SERIAL
 #define DEBUG_WEB
 
@@ -45,7 +57,7 @@ STARTUP(System.enableFeature(FEATURE_RETAINED_MEMORY));
 #define CHANNEL_INFO        6
 
 #define CHANNEL_ROOT        "HomeTemp"
-#define CHANNEL_DATA_NAME   "HomeTemp"
+#define CHANNEL_DATA_NAME   CHANNEL_ROOT
 #define CHANNEL_SENSOR_NAME CHANNEL_ROOT"/sensor"
 #define CHANNEL_TINKER_NAME CHANNEL_ROOT"/tinker"
 #define CHANNEL_ERROR_NAME  CHANNEL_ROOT"/log/error"
@@ -56,6 +68,7 @@ STARTUP(System.enableFeature(FEATURE_RETAINED_MEMORY));
 #define CHANNEL_VERBOSITY   CHANNEL_ERROR
 
 #define PIN_LIGHT                    D7
+#define PIN_I2C                      D2
 
 #define REPONSE_BUFFER_SIZE        2048
 #define MAX_DEVICE_CONF_LIST         20
@@ -1032,6 +1045,9 @@ void setup()
 
     pinMode(PIN_LIGHT, OUTPUT);
 	digitalWrite(PIN_LIGHT, LOW);
+	
+	pinMode(PIN_I2C, OUTPUT);
+	digitalWrite(PIN_LIGHT, LOW);
 
     firstAvailable = 0;
     wifiReady      = false;
@@ -1059,8 +1075,8 @@ void loop()
 // 			logger("calling System.sleep(SLEEP_MODE_DEEP, 30)");
 
             Particle.syncTime();
-
-	        logger("connected. sending signal", CHANNEL_INFO);
+            
+	        logger("connected. sending signal: " + String(millis()), CHANNEL_INFO);
 
             // logger("deviceConfListSize: " + String(deviceConfListSize) + " sensorConfListSize: " + String(sensorConfListSize), CHANNEL_LOG);
 
@@ -1076,6 +1092,8 @@ void loop()
     	        logger("signal sent. sleeping", CHANNEL_INFO);
     
     			digitalWrite(PIN_LIGHT, LOW);
+    			
+    			digitalWrite(PIN_I2C, LOW);
     
     			delay(sleep_delay_ms);
     
@@ -1088,6 +1106,8 @@ void loop()
 
             } else {
                 logger("failed to read config. sleeping", CHANNEL_ERROR);
+                
+                digitalWrite(PIN_I2C, LOW);
                 
                 delay(100);
                 
@@ -1197,11 +1217,17 @@ void printVariables() {
 void resetI2C() {
     // https://github.com/particle-iot/firmware/issues/598
 
+    pinMode(PIN_I2C, OUTPUT);
     pinMode(SDA, INPUT);
     pinMode(SCL, INPUT);
     
+    digitalWrite(PIN_I2C, LOW);
     digitalWrite(SDA, LOW);
     digitalWrite(SCL, LOW);
+
+    delay(500);
+
+    digitalWrite(PIN_I2C, HIGH);
 
     Wire.reset();
     
